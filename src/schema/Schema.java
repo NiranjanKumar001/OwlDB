@@ -1,10 +1,6 @@
 package schema;
 
-// Java doesn't know what List means by default.So we import it.
-
 import java.util.List;
-
-//
 
 public class Schema {
 
