@@ -2,6 +2,7 @@ package app;
 
 import schema.Column;
 import schema.Schema;
+import storage.StorageEngine;
 import row.Row;
 import table.Table;
 
@@ -134,5 +135,12 @@ public class Main {
                     row.getValues()
             );
         }
+
+        StorageEngine storageEngine =
+        new StorageEngine();
+
+storageEngine.saveSchema(
+        usersTable.getSchema()
+);
     }
 }

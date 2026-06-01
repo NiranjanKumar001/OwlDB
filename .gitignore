@@ -1,0 +1,15 @@
+# Compiled Java files
+*.class
+
+# Build output
+out/
+
+# VS Code settings (optional)
+.vscode/
+
+.env
+
+.claude
+
+.codex
+
