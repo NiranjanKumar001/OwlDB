@@ -33,6 +33,7 @@ Current capabilities:
 - ✅ Represents tables with schemas, columns, and rows
 - ✅ Stores schemas and rows in files
 - ✅ Loads schemas, rows, and tables from disk
+- ✅ Uses a basic in-memory index for fast id lookups
 - ✅ Provides a basic storage-backed database API for create, insert, select, update, delete, and load
 
 Planned capabilities:
@@ -131,6 +132,16 @@ Current storage operations:
 - `loadRows(tableName)`
 - `loadTable(tableName)`
 
+### `Index`
+Basic in-memory hash index:
+```
+id -> List<Row>
+```
+
+Current index operations:
+- `add(key, row)`
+- `find(key)`
+
 ### `Database`
 Provides a simple database-level API:
 ```java
@@ -158,6 +169,7 @@ Database writes are now connected to storage:
 - `updateWhere()` changes matching rows and persists the updated file
 - `deleteWhere()` removes matching rows and persists the updated file
 - `loadTable()` restores a persisted table back into the in-memory database
+- `selectWhere()` uses the index for fast lookups on `id`
 
 Example persisted row data:
 ```txt
@@ -173,7 +185,7 @@ Example persisted row data:
 
 ```bash
 cd ~/Desktop/OwlDB/src
-javac schema/*.java row/*.java table/*.java storage/*.java database/*.java app/*.java
+javac schema/*.java row/*.java table/*.java storage/*.java database/*.java index/*.java app/*.java
 java app.Main
 ```
 
@@ -181,7 +193,7 @@ java app.Main
 
 ```bash
 cd ~/Desktop/OwlDB/src
-javac schema/*.java row/*.java table/*.java storage/*.java database/*.java app/*.java && java app.Main
+javac schema/*.java row/*.java table/*.java storage/*.java database/*.java index/*.java app/*.java && java app.Main
 ```
 
 ### Basic Example
@@ -232,7 +244,7 @@ db.deleteWhere("users", "age", "17");
 | 2 | **Storage Engine** | Save/load schemas and rows from files | ✅ Complete |
 | 3 | **Database API** | Storage-backed `createTable()`, `insert()`, `selectWhere()`, `updateWhere()`, `deleteWhere()`, `loadTable()` | 🔄 In Progress |
 | 4 | **Query Language** | Tokenizer, Parser, Executor for SQL | ⏭️ Next |
-| 5 | **Indexing** | Hash indexes, B+ trees | ⏳ Planned |
+| 5 | **Indexing** | Basic hash index (id) → B+ trees | 🔄 In Progress |
 | 6 | **Pages** | Buffer management, page-based storage | ⏳ Planned |
 | 7 | **Transactions** | BEGIN, COMMIT, ROLLBACK (ACID) | ⏳ Planned |
 | 8 | **WAL** | Write Ahead Log for crash recovery | ⏳ Planned |
@@ -252,7 +264,8 @@ OwlDB/
 │   ├── row/              Row class
 │   ├── table/            Table class
 │   ├── storage/          Storage engine (Phase 2)
-│   └── database/         Database API (Phase 3)
+│   ├── database/         Database API (Phase 3)
+│   └── index/            Basic hash index (Phase 5)
 ├── data/                 Persisted table data
 ├── schemas/              Persisted schema definitions
 └── README.md
@@ -260,7 +273,6 @@ OwlDB/
 
 Planned folders:
 - `query/` for SQL parsing and execution
-- `index/` for indexes
 - `transaction/` for transactions
 - `ai/` for natural language query support
 
