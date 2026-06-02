@@ -146,15 +146,8 @@ public class Database {
                  */
                 if (columnName.equals("id")) {
 
-                        Row row = table.getIndex()
+                        List<Row> result = table.getIndex()
                                         .find(value);
-
-                        List<Row> result = new ArrayList<>();
-
-                        if (row != null) {
-
-                                result.add(row);
-                        }
 
                         System.out.println(
                                         "Using index lookup.");

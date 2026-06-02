@@ -25,11 +25,14 @@ public class IndexTest {
                 "1",
                 user1);
 
-        Row found =
+        List<Row> rows =
                 index.find(
                         "1");
 
-        System.out.println(
-                found.getValues());
+        for (Row row : rows) {
+
+            System.out.println(
+                    row.getValues());
+        }
     }
 }

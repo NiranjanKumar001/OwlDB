@@ -23,7 +23,7 @@ public class Table {
      * Primary index.
      *
      * For now:
-     * id -> Row
+     * id -> List<Row>
      */
     private Index index;
 
