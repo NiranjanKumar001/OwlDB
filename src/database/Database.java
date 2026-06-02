@@ -7,6 +7,7 @@ import schema.Column;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
+import java.io.File;
 import java.util.ArrayList;
 import storage.StorageEngine;
 
@@ -344,5 +345,45 @@ public class Database {
                 System.out.println(
                                 "Table loaded into database: "
                                                 + tableName);
+        }
+
+        /*
+         * Load all tables from schemas folder.
+         */
+        public void loadAllTables() {
+
+                File schemaFolder = new File(
+                                "../schemas");
+
+                File[] files = schemaFolder.listFiles();
+
+                if (files == null) {
+
+                        System.out.println(
+                                        "No schema files found.");
+
+                        return;
+                }
+
+                for (File file : files) {
+
+                        String fileName = file.getName();
+
+                        if (!fileName.endsWith(
+                                        ".schema")) {
+
+                                continue;
+                        }
+
+                        String tableName = fileName.replace(
+                                        ".schema",
+                                        "");
+
+                        loadTable(
+                                        tableName);
+                }
+
+                System.out.println(
+                                "All tables loaded.");
         }
 }
