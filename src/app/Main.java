@@ -13,72 +13,96 @@ public class Main {
 
     public static void main(String[] args) {
 
-        /*
-         * Create columns
-         */
+        // Create columns
         List<Column> columns =
                 new ArrayList<>();
 
         columns.add(
-                new Column(
-                        "id",
-                        "INT"));
+                new Column("id", "INT"));
 
         columns.add(
-                new Column(
-                        "name",
-                        "STRING"));
+                new Column("name", "STRING"));
 
         columns.add(
-                new Column(
-                        "age",
-                        "INT"));
+                new Column("age", "INT"));
 
-        /*
-         * Create schema
-         */
+        // Create schema
         Schema usersSchema =
                 new Schema(
                         "users",
                         columns);
 
-        /*
-         * Create table
-         */
+        // Create table
         Table usersTable =
                 new Table(
                         usersSchema);
 
-        /*
-         * Add rows
-         */
-        usersTable.addRow(
+        // Create database
+        Database db =
+                new Database();
+
+        // Test createTable()
+        db.createTable(
+                usersTable);
+
+        // Test insert()
+        db.insert(
+                "users",
                 new Row(
                         List.of(
                                 "1",
                                 "Niranjan",
-                                "22")));
+                                "22"
+                        )
+                )
+        );
 
-        usersTable.addRow(
+        db.insert(
+                "users",
                 new Row(
                         List.of(
                                 "2",
                                 "Rahul",
-                                "17")));
+                                "17"
+                        )
+                )
+        );
 
-        /*
-         * Create database
-         */
-        Database db =
-                new Database();
+        db.insert(
+                "users",
+                new Row(
+                        List.of(
+                                "3",
+                                "Priya",
+                                "20"
+                        )
+                )
+        );
+        
+        db.insert(
+        "unknown",
+        new Row(
+                List.of("1")
+        )
+);
 
-        /*
-         * Add table to database
-         */
-        db.createTable(
-                usersTable);
+        // Test getTable()
+        Table loadedTable =
+                db.getTable(
+                        "users"
+                );
 
         System.out.println(
-                "\nDatabase test completed.");
+                "\nRows After Insert:"
+        );
+
+        for (Row row :
+                loadedTable.getRows()) {
+
+            System.out.println(
+                    row.getValues()
+            );
+        }
+        
     }
 }

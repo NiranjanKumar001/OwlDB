@@ -112,8 +112,15 @@ Rows:
 
 ```bash
 cd ~/Desktop/OwlDB/src
-javac schema/*.java row/*.java table/*.java app/*.java
+javac schema/*.java row/*.java table/*.java storage/*.java database/*.java app/*.java
 java app.Main
+```
+
+### Compile & Run at Once
+
+```bash
+cd ~/Desktop/OwlDB/src
+javac schema/*.java row/*.java table/*.java storage/*.java database/*.java app/*.java && java app.Main
 ```
 
 ### Basic Example
