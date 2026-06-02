@@ -103,6 +103,21 @@ public class Main {
                     row.getValues()
             );
         }
+        System.out.println(
+        "\nSelect All:"
+);
+
+List<Row> rows =
+        db.selectAll(
+                "users"
+        );
+
+for (Row row : rows) {
+
+    System.out.println(
+            row.getValues()
+    );
+}
         
     }
 }
