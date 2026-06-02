@@ -29,12 +29,17 @@ show users older than 20
 
 **That's OwlDB.**
 
-We're building a database that:
-- ✅ Stores data persistently to disk
-- ✅ Understands SQL queries
-- ✅ Optimizes execution with indexes
-- ✅ Supports transactions and crash recovery
-- ✅ Understands natural language queries via AI
+Current capabilities:
+- ✅ Represents tables with schemas, columns, and rows
+- ✅ Stores schemas and rows in files
+- ✅ Loads schemas, rows, and tables from disk
+- ✅ Provides a basic database API for create, insert, get, and select-all
+
+Planned capabilities:
+- ⏳ SQL query parsing and execution
+- ⏳ Indexes and query optimization
+- ⏳ Transactions and crash recovery
+- ⏳ Natural language queries via AI
 
 ---
 
@@ -46,7 +51,11 @@ We're building a database that:
 └──────────┬──────────┘
            │
 ┌──────────▼──────────┐
-│  Query Engine       │  Phase 4: Parse & execute SQL
+│  Query Engine       │  Phase 4: Parse & execute SQL (NEXT)
+└──────────┬──────────┘
+           │
+┌──────────▼──────────┐
+│  Database API       │  Phase 3: create, insert, select (IN PROGRESS)
 └──────────┬──────────┘
            │
 ┌──────────▼──────────┐
@@ -54,7 +63,7 @@ We're building a database that:
 └──────────┬──────────┘
            │
 ┌──────────▼──────────┐
-│  Storage Engine     │  Phase 2: Persist to disk (NEXT)
+│  Storage Engine     │  Phase 2: Save/load files ✓
 └──────────┬──────────┘
            │
 ┌──────────▼──────────┐
@@ -64,9 +73,11 @@ We're building a database that:
 
 ---
 
-## 📍 Current Status: Phase 1 - Metadata Layer
+## 📍 Current Status: Phase 3 - Database API (In Progress)
 
-We've built the foundation with four core classes:
+OwlDB now has the core metadata layer, file-based storage, and a small database API for creating tables, inserting rows, fetching tables, and selecting all rows.
+
+### Completed So Far
 
 ### `Column`
 Represents a field definition:
@@ -104,6 +115,34 @@ Rows:
   [2, "Rahul", 17]
 ```
 
+### `StorageEngine`
+Persists schemas and rows to disk:
+```
+schemas/users.schema
+data/users.data
+```
+
+Current storage operations:
+- `saveSchema(schema)`
+- `saveRows(table)`
+- `loadSchema(tableName)`
+- `loadRows(tableName)`
+- `loadTable(tableName)`
+
+### `Database`
+Provides a simple database-level API:
+```java
+db.createTable(usersTable);
+db.insert("users", new Row(List.of("1", "Niranjan", "22")));
+db.selectAll("users");
+```
+
+Current database operations:
+- `createTable(table)`
+- `getTable(tableName)`
+- `insert(tableName, row)`
+- `selectAll(tableName)`
+
 ---
 
 ## 🚀 Quick Start
@@ -135,15 +174,19 @@ columns.add(new Column("age", "INT"));
 // 2. Create schema
 Schema usersSchema = new Schema("users", columns);
 
-// 3. Create table
+// 3. Create table and database
 Table usersTable = new Table(usersSchema);
+Database db = new Database();
 
-// 4. Add rows
-usersTable.addRow(new Row(List.of("1", "Niranjan", "22")));
-usersTable.addRow(new Row(List.of("2", "Rahul", "17")));
+// 4. Register table
+db.createTable(usersTable);
 
-// 5. Query
-System.out.println("Table: " + usersTable.getSchema().getTableName());
+// 5. Insert rows
+db.insert("users", new Row(List.of("1", "Niranjan", "22")));
+db.insert("users", new Row(List.of("2", "Rahul", "17")));
+
+// 6. Select rows
+List<Row> rows = db.selectAll("users");
 ```
 
 ---
@@ -153,9 +196,9 @@ System.out.println("Table: " + usersTable.getSchema().getTableName());
 | Phase | Name | Components | Status |
 |-------|------|------------|--------|
 | 1 | **Metadata Layer** | Column, Schema, Row, Table | ✅ Complete |
-| 2 | **Storage Engine** | File serialization, persistence | 🔄 Next |
-| 3 | **Database API** | `db.createTable()`, `db.insert()`, `db.select()` | ⏳ Planned |
-| 4 | **Query Language** | Tokenizer, Parser, Executor for SQL | ⏳ Planned |
+| 2 | **Storage Engine** | Save/load schemas and rows from files | ✅ Complete |
+| 3 | **Database API** | `createTable()`, `insert()`, `getTable()`, `selectAll()` | 🔄 In Progress |
+| 4 | **Query Language** | Tokenizer, Parser, Executor for SQL | ⏭️ Next |
 | 5 | **Indexing** | Hash indexes, B+ trees | ⏳ Planned |
 | 6 | **Pages** | Buffer management, page-based storage | ⏳ Planned |
 | 7 | **Transactions** | BEGIN, COMMIT, ROLLBACK (ACID) | ⏳ Planned |
@@ -176,30 +219,34 @@ OwlDB/
 │   ├── row/              Row class
 │   ├── table/            Table class
 │   ├── storage/          Storage engine (Phase 2)
-│   ├── query/            Query engine (Phase 4)
-│   ├── index/            Indexing (Phase 5)
-│   ├── transaction/      Transactions (Phase 7)
-│   └── ai/               AI layer (Phase 11)
+│   └── database/         Database API (Phase 3)
 ├── data/                 Persisted table data
 ├── schemas/              Persisted schema definitions
 └── README.md
 ```
 
+Planned folders:
+- `query/` for SQL parsing and execution
+- `index/` for indexes
+- `transaction/` for transactions
+- `ai/` for natural language query support
+
 ---
 
-## 🔧 What's Next? (Phase 2)
+## 🔧 What's Next? (Phase 3 → Phase 4)
 
-### Storage Engine
-The moment OwlDB becomes a *real* database.
+### Finish Database API
+The database layer now exists, but it can grow into a cleaner user-facing API before SQL parsing begins.
 
-**Goal:** Data persists to disk when the program exits.
+**Current goal:** Make table operations feel like a real database interface.
 
 **Implementation:**
-- Serialize `Schema` objects → `schemas/users.schema`
-- Serialize `Row` data → `data/users.data`
-- Implement deserialization on startup
+- Keep improving `Database`
+- Add safer error handling for missing tables
+- Add selected-row queries after `selectAll`
+- Connect database operations more tightly with `StorageEngine`
 
-**Outcome:** When you restart the program, your data is still there. 🎉
+**Next major phase:** Build the Query Language layer with a tokenizer, parser, and executor.
 
 ---
 
