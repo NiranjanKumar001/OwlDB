@@ -126,5 +126,23 @@ public class Main {
                 storageEngine.saveRows(
                                 usersTable);
 
+                /*
+                 * Test loadSchema()
+                 */
+
+                Schema loadedSchema = storageEngine.loadSchema(
+                                "users");
+
+                System.out.println(
+                                "\nLoaded Schema:");
+
+                for (Column column : loadedSchema.getColumns()) {
+
+                        System.out.println(
+                                        column.getName()
+                                                        + " "
+                                                        + column.getType());
+                }
+
         }
 }

@@ -10,6 +10,11 @@ import java.io.IOException; //used for file related exceptions
 import table.Table;
 import row.Row;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.util.ArrayList;
+import java.util.List;
+
 //this will Save data, Load data &Manage files
 
 public class StorageEngine {
@@ -143,4 +148,144 @@ public class StorageEngine {
             e.printStackTrace();
         }
     }
+
+    public Schema loadSchema(
+            String tableName) {
+
+        List<Column> columns = new ArrayList<>();
+
+        try {
+
+            String fileName = "../schemas/"
+                    + tableName
+                    + ".schema";
+
+            BufferedReader reader = new BufferedReader(
+                    new FileReader(
+                            fileName));
+
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+
+                String[] parts = line.split(":");
+
+                Column column = new Column(
+                        parts[0],
+                        parts[1]);
+
+                columns.add(column);
+            }
+
+            reader.close();
+
+        } catch (IOException e) {
+
+            e.printStackTrace();
+        }
+
+        System.out.println(
+        "Schema loaded successfully.");
+
+        return new Schema(
+                tableName,
+                columns);
+    }
+
+    /*
+     * Load all rows from a table.
+     *
+     * Example:
+     *
+     * users.data
+     *
+     * 1,Niranjan,22
+     * 2,Rahul,17
+     */
+    public List<Row> loadRows(String tableName) {
+
+        // Store all loaded rows
+        List<Row> rows = new ArrayList<>();
+
+        try {
+
+            // Build filename
+            String fileName = "../data/"
+                    + tableName
+                    + ".data";
+
+            // Open file for reading
+            BufferedReader reader = new BufferedReader(
+                    new FileReader(
+                            fileName));
+
+            String line;
+
+            // Read every line
+            while ((line = reader.readLine()) != null) {
+
+                /*
+                 * Example:
+                 *
+                 * 1,Niranjan,22
+                 */
+                String[] parts = line.split(",");
+
+                /*
+                 * Convert:
+                 *
+                 * ["1","Niranjan","22"]
+                 *
+                 * into Row object
+                 */
+                Row row = new Row(
+                        List.of(parts));
+
+                rows.add(row);
+            }
+
+            reader.close();
+
+            System.out.println(
+                    "Rows loaded successfully.");
+
+        } catch (IOException e) {
+
+            System.out.println(
+                    "Error loading rows.");
+
+            e.printStackTrace();
+        }
+
+        return rows;
+    }
+
+    public Table loadTable(
+            String tableName) {
+
+        // Load schema
+        Schema schema = loadSchema(
+                tableName);
+
+        // Load rows
+        List<Row> rows = loadRows(
+                tableName);
+
+        // Create table
+        Table table = new Table(
+                schema);
+
+        // Add loaded rows
+        for (Row row : rows) {
+
+            table.addRow(
+                    row);
+        }
+
+        System.out.println(
+                "Table loaded successfully.");
+
+        return table;
+    }
+
 }
