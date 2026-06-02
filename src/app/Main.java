@@ -56,13 +56,13 @@ public class Main {
                 new Database();
 
         /*
-         * Create table in database
+         * Test createTable()
          */
         db.createTable(
                 usersTable);
 
         /*
-         * Insert rows
+         * Test insert()
          */
         db.insert(
                 "users",
@@ -98,7 +98,7 @@ public class Main {
         );
 
         /*
-         * Test invalid table
+         * Invalid table test
          */
         db.insert(
                 "unknown",
@@ -110,50 +110,44 @@ public class Main {
         /*
          * Test getTable()
          */
+        System.out.println(
+                "\n===== GET TABLE =====");
+
         Table loadedTable =
                 db.getTable(
-                        "users"
-                );
-
-        System.out.println(
-                "\nRows After Insert:"
-        );
+                        "users");
 
         for (Row row :
                 loadedTable.getRows()) {
 
             System.out.println(
-                    row.getValues()
-            );
+                    row.getValues());
         }
 
         /*
          * Test selectAll()
          */
         System.out.println(
-                "\nSelect All:"
-        );
+                "\n===== SELECT ALL =====");
 
         List<Row> rows =
                 db.selectAll(
-                        "users"
-                );
+                        "users");
 
-        for (Row row : rows) {
+        for (Row row :
+                rows) {
 
             System.out.println(
-                    row.getValues()
-            );
+                    row.getValues());
         }
 
         /*
          * Test selectWhere()
          */
         System.out.println(
-                "\nUsers With Age 22:"
-        );
+                "\n===== SELECT WHERE age = 22 =====");
 
-        List<Row> ageResult =
+        List<Row> result =
                 db.selectWhere(
                         "users",
                         "age",
@@ -161,28 +155,57 @@ public class Main {
                 );
 
         for (Row row :
-                ageResult) {
+                result) {
 
             System.out.println(
-                    row.getValues()
-            );
+                    row.getValues());
+        }
+
+        /*
+         * Test updateWhere()
+         */
+        System.out.println(
+                "\n===== BEFORE UPDATE =====");
+
+        for (Row row :
+                db.selectAll(
+                        "users")) {
+
+            System.out.println(
+                    row.getValues());
+        }
+
+        db.updateWhere(
+                "users",
+                "name",
+                "Niranjan",
+                "age",
+                "23"
+        );
+
+        System.out.println(
+                "\n===== AFTER UPDATE =====");
+
+        for (Row row :
+                db.selectAll(
+                        "users")) {
+
+            System.out.println(
+                    row.getValues());
         }
 
         /*
          * Test deleteWhere()
          */
         System.out.println(
-                "\nBefore Delete:"
-        );
+                "\n===== BEFORE DELETE =====");
 
         for (Row row :
                 db.selectAll(
-                        "users"
-                )) {
+                        "users")) {
 
             System.out.println(
-                    row.getValues()
-            );
+                    row.getValues());
         }
 
         db.deleteWhere(
@@ -192,17 +215,14 @@ public class Main {
         );
 
         System.out.println(
-                "\nAfter Delete:"
-        );
+                "\n===== AFTER DELETE =====");
 
         for (Row row :
                 db.selectAll(
-                        "users"
-                )) {
+                        "users")) {
 
             System.out.println(
-                    row.getValues()
-            );
+                    row.getValues());
         }
     }
 }

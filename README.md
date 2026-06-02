@@ -33,7 +33,7 @@ Current capabilities:
 - ✅ Represents tables with schemas, columns, and rows
 - ✅ Stores schemas and rows in files
 - ✅ Loads schemas, rows, and tables from disk
-- ✅ Provides a basic database API for create, insert, get, and select-all
+- ✅ Provides a basic database API for create, insert, select, update, and delete
 
 Planned capabilities:
 - ⏳ SQL query parsing and execution
@@ -55,7 +55,7 @@ Planned capabilities:
 └──────────┬──────────┘
            │
 ┌──────────▼──────────┐
-│  Database API       │  Phase 3: create, insert, select (IN PROGRESS)
+│  Database API       │  Phase 3: create, insert, select, update, delete (IN PROGRESS)
 └──────────┬──────────┘
            │
 ┌──────────▼──────────┐
@@ -75,7 +75,7 @@ Planned capabilities:
 
 ## 📍 Current Status: Phase 3 - Database API (In Progress)
 
-OwlDB now has the core metadata layer, file-based storage, and a small database API for creating tables, inserting rows, fetching tables, and selecting all rows.
+OwlDB now has the core metadata layer, file-based storage, and a small database API for creating tables, inserting rows, fetching tables, selecting rows, updating rows, and deleting rows.
 
 ### Completed So Far
 
@@ -101,6 +101,8 @@ Represents a single record/tuple:
 ```
 [1, "Niranjan", 22]
 ```
+
+Rows keep a mutable copy of their values so update operations can change matching records safely.
 
 ### `Table`
 Represents complete table (Schema + Rows):
@@ -135,6 +137,9 @@ Provides a simple database-level API:
 db.createTable(usersTable);
 db.insert("users", new Row(List.of("1", "Niranjan", "22")));
 db.selectAll("users");
+db.selectWhere("users", "age", "22");
+db.updateWhere("users", "name", "Niranjan", "age", "23");
+db.deleteWhere("users", "age", "17");
 ```
 
 Current database operations:
@@ -142,6 +147,9 @@ Current database operations:
 - `getTable(tableName)`
 - `insert(tableName, row)`
 - `selectAll(tableName)`
+- `selectWhere(tableName, columnName, value)`
+- `updateWhere(tableName, whereColumn, whereValue, updateColumn, newValue)`
+- `deleteWhere(tableName, columnName, value)`
 
 ---
 
@@ -187,6 +195,15 @@ db.insert("users", new Row(List.of("2", "Rahul", "17")));
 
 // 6. Select rows
 List<Row> rows = db.selectAll("users");
+
+// 7. Select rows by condition
+List<Row> adults = db.selectWhere("users", "age", "22");
+
+// 8. Update matching rows
+db.updateWhere("users", "name", "Niranjan", "age", "23");
+
+// 9. Delete matching rows
+db.deleteWhere("users", "age", "17");
 ```
 
 ---
@@ -197,7 +214,7 @@ List<Row> rows = db.selectAll("users");
 |-------|------|------------|--------|
 | 1 | **Metadata Layer** | Column, Schema, Row, Table | ✅ Complete |
 | 2 | **Storage Engine** | Save/load schemas and rows from files | ✅ Complete |
-| 3 | **Database API** | `createTable()`, `insert()`, `getTable()`, `selectAll()` | 🔄 In Progress |
+| 3 | **Database API** | `createTable()`, `insert()`, `selectWhere()`, `updateWhere()`, `deleteWhere()` | 🔄 In Progress |
 | 4 | **Query Language** | Tokenizer, Parser, Executor for SQL | ⏭️ Next |
 | 5 | **Indexing** | Hash indexes, B+ trees | ⏳ Planned |
 | 6 | **Pages** | Buffer management, page-based storage | ⏳ Planned |
@@ -243,7 +260,7 @@ The database layer now exists, but it can grow into a cleaner user-facing API be
 **Implementation:**
 - Keep improving `Database`
 - Add safer error handling for missing tables
-- Add selected-row queries after `selectAll`
+- Add more query-style operations after `selectWhere`, `updateWhere`, and `deleteWhere`
 - Connect database operations more tightly with `StorageEngine`
 
 **Next major phase:** Build the Query Language layer with a tokenizer, parser, and executor.
