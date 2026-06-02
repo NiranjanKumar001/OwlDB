@@ -318,4 +318,31 @@ public class Database {
 
                 return -1;
         }
+
+        /*
+         * Load table from disk
+         */
+        public void loadTable(
+                        String tableName) {
+
+                Table table = storageEngine.loadTable(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Failed to load table: "
+                                                        + tableName);
+
+                        return;
+                }
+
+                tables.put(
+                                tableName,
+                                table);
+
+                System.out.println(
+                                "Table loaded into database: "
+                                                + tableName);
+        }
 }
