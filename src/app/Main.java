@@ -1,9 +1,9 @@
 package app;
 
+import database.Database;
+import row.Row;
 import schema.Column;
 import schema.Schema;
-import storage.StorageEngine;
-import row.Row;
 import table.Table;
 
 import java.util.ArrayList;
@@ -11,138 +11,74 @@ import java.util.List;
 
 public class Main {
 
-        public static void main(String[] args) {
+    public static void main(String[] args) {
 
-                /*
-                 * STEP 1
-                 * Create columns for Users table
-                 */
+        /*
+         * Create columns
+         */
+        List<Column> columns =
+                new ArrayList<>();
 
-                List<Column> columns = new ArrayList<>();
+        columns.add(
+                new Column(
+                        "id",
+                        "INT"));
 
-                columns.add(
-                                new Column("id", "INT"));
+        columns.add(
+                new Column(
+                        "name",
+                        "STRING"));
 
-                columns.add(
-                                new Column("name", "STRING"));
+        columns.add(
+                new Column(
+                        "age",
+                        "INT"));
 
-                columns.add(
-                                new Column("age", "INT"));
+        /*
+         * Create schema
+         */
+        Schema usersSchema =
+                new Schema(
+                        "users",
+                        columns);
 
-                /*
-                 * STEP 2
-                 * Create schema
-                 *
-                 * users
-                 * ├── id INT
-                 * ├── name STRING
-                 * └── age INT
-                 */
+        /*
+         * Create table
+         */
+        Table usersTable =
+                new Table(
+                        usersSchema);
 
-                Schema usersSchema = new Schema(
-                                "users",
-                                columns);
+        /*
+         * Add rows
+         */
+        usersTable.addRow(
+                new Row(
+                        List.of(
+                                "1",
+                                "Niranjan",
+                                "22")));
 
-                /*
-                 * STEP 3
-                 * Create table using schema
-                 */
+        usersTable.addRow(
+                new Row(
+                        List.of(
+                                "2",
+                                "Rahul",
+                                "17")));
 
-                Table usersTable = new Table(usersSchema);
+        /*
+         * Create database
+         */
+        Database db =
+                new Database();
 
-                /*
-                 * STEP 4
-                 * Add first row
-                 *
-                 * 1 | Niranjan | 22
-                 */
+        /*
+         * Add table to database
+         */
+        db.createTable(
+                usersTable);
 
-                usersTable.addRow(
-                                new Row(
-                                                List.of(
-                                                                "1",
-                                                                "Niranjan",
-                                                                "22")));
-
-                /*
-                 * STEP 5
-                 * Add second row
-                 *
-                 * 2 | Rahul | 17
-                 */
-
-                usersTable.addRow(
-                                new Row(
-                                                List.of(
-                                                                "2",
-                                                                "Rahul",
-                                                                "17")));
-
-                /*
-                 * STEP 6
-                 * Print table name
-                 */
-
-                System.out.println(
-                                "Table Name: "
-                                                + usersTable
-                                                                .getSchema()
-                                                                .getTableName());
-
-                /*
-                 * STEP 7
-                 * Print schema
-                 */
-
-                System.out.println("\nSchema:");
-
-                for (Column column : usersTable
-                                .getSchema()
-                                .getColumns()) {
-
-                        System.out.println(
-                                        column.getName()
-                                                        + " "
-                                                        + column.getType());
-                }
-
-                /*
-                 * STEP 8
-                 * Print rows
-                 */
-
-                System.out.println("\nRows:");
-
-                for (Row row : usersTable.getRows()) {
-
-                        System.out.println(
-                                        row.getValues());
-                }
-
-                StorageEngine storageEngine = new StorageEngine();
-
-                storageEngine.saveSchema(
-                                usersTable.getSchema());
-                storageEngine.saveRows(
-                                usersTable);
-
-                /*
-                 * Test loadSchema()
-                 */
-
-                Schema loadedSchema = storageEngine.loadSchema(
-                                "users");
-
-                System.out.println(
-                                "\nLoaded Schema:");
-
-                for (Column column : loadedSchema.getColumns()) {
-
-                        System.out.println(
-                                        column.getName()
-                                                        + " "
-                                                        + column.getType());
-                }
-
-        }
+        System.out.println(
+                "\nDatabase test completed.");
+    }
 }
