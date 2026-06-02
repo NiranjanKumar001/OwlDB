@@ -4,12 +4,20 @@
 # Build output
 out/
 
-# VS Code settings (optional)
+# Runtime data files
+data/*.data
+schemas/*.schema
+
+# IDE/editor settings
 .vscode/
+.idea/
+*.iml
 
+# Logs
+*.log
+
+# Local env/config
 .env
-
 .claude
-
 .codex
 
