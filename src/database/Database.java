@@ -140,6 +140,31 @@ public class Database {
                         return new ArrayList<>();
                 }
 
+                /*
+                 * Fast path:
+                 * use index for id lookup.
+                 */
+                if (columnName.equals("id")) {
+
+                        Row row = table.getIndex()
+                                        .find(value);
+
+                        List<Row> result = new ArrayList<>();
+
+                        if (row != null) {
+
+                                result.add(row);
+                        }
+
+                        System.out.println(
+                                        "Using index lookup.");
+
+                        return result;
+                }
+
+                /*
+                 * Normal scan for other columns.
+                 */
                 int columnIndex = getColumnIndex(
                                 table,
                                 columnName);
@@ -161,8 +186,7 @@ public class Database {
                                         .get(columnIndex)
                                         .equals(value)) {
 
-                                result.add(
-                                                row);
+                                result.add(row);
                         }
                 }
 

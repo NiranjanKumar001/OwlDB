@@ -2,81 +2,87 @@ package table;
 
 import schema.Schema;
 import row.Row;
+import index.Index;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/*
- * Represents a complete table.
- *
- * Example:
- *
- * Users Table
- *
- * Schema:
- * id INT
- * name STRING
- * age INT
- *
- * Rows:
- * [1, Niranjan, 22]
- * [2, Rahul, 17]
- */
 public class Table {
 
     /*
-     * Blueprint of the table.
-     *
-     * Example:
-     * id INT
-     * name STRING
-     * age INT
+     * Blueprint of table.
      */
     private Schema schema;
 
     /*
-     * All rows stored in this table.
-     *
-     * Example:
-     * [1, Niranjan, 22]
-     * [2, Rahul, 17]
+     * Table rows.
      */
     private List<Row> rows;
 
     /*
-     * Constructor
+     * Primary index.
      *
-     * When a new table is created,
-     * it receives a schema.
-     *
-     * Initially there are no rows.
+     * For now:
+     * id -> Row
      */
-    public Table(Schema schema) {
+    private Index index;
+
+    /*
+     * Constructor
+     */
+    public Table(
+            Schema schema) {
 
         this.schema = schema;
 
-        // Start with empty rows
-        this.rows = new ArrayList<>();
+        this.rows =
+                new ArrayList<>();
+
+        this.index =
+                new Index();
     }
 
     /*
-     * Returns table schema.
+     * Get schema.
      */
     public Schema getSchema() {
+
         return schema;
     }
 
     /*
-     * Returns all rows.
+     * Get rows.
      */
     public List<Row> getRows() {
+
         return rows;
     }
 
     /*
-     * Adds a row to the table.
+     * Get index.
      */
-    public void addRow(Row row) {
+    public Index getIndex() {
+
+        return index;
+    }
+
+    /*
+     * Add row.
+     */
+    public void addRow(
+            Row row) {
+
         rows.add(row);
+
+        /*
+         * First column = id
+         */
+        String key =
+                row.getValues()
+                        .get(0);
+
+        index.add(
+                key,
+                row);
     }
 }
