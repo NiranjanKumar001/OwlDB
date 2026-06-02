@@ -11,185 +11,232 @@ import java.util.ArrayList;
 
 public class Database {
 
-    /*
-     * Stores all tables.
-     *
-     * Example:
-     *
-     * users    -> Users Table
-     * products -> Products Table
-     */
-    private Map<String, Table> tables;
+        /*
+         * Stores all tables.
+         *
+         * Example:
+         *
+         * users -> Users Table
+         * products -> Products Table
+         */
+        private Map<String, Table> tables;
 
-    /*
-     * Constructor
-     */
-    public Database() {
+        /*
+         * Constructor
+         */
+        public Database() {
 
-        tables =
-                new HashMap<>();
-    }
-
-    /*
-     * Create a table inside database.
-     */
-    public void createTable(
-            Table table) {
-
-        String tableName =
-                table.getSchema()
-                        .getTableName();
-
-        tables.put(
-                tableName,
-                table);
-
-        System.out.println(
-                "Table created: "
-                        + tableName);
-    }
-
-    /*
-     * Get a table by name.
-     */
-    public Table getTable(
-            String tableName) {
-
-        return tables.get(
-                tableName);
-    }
-
-    /*
-     * Insert a row into a table.
-     */
-    public void insert(
-            String tableName,
-            Row row) {
-
-        Table table =
-                tables.get(
-                        tableName);
-
-        if (table == null) {
-
-            System.out.println(
-                    "Table not found: "
-                            + tableName);
-
-            return;
-        }
-
-        table.addRow(
-                row);
-
-        System.out.println(
-                "Row inserted into "
-                        + tableName);
-    }
-
-    /*
-     * SELECT * FROM table
-     */
-    public List<Row> selectAll(
-            String tableName) {
-
-        Table table =
-                tables.get(
-                        tableName);
-
-        if (table == null) {
-
-            System.out.println(
-                    "Table not found: "
-                            + tableName);
-
-            return new ArrayList<>();
-        }
-
-        return table.getRows();
-    }
-
-    /*
-     * SELECT *
-     * FROM table
-     * WHERE column = value
-     */
-    public List<Row> selectWhere(
-            String tableName,
-            String columnName,
-            String value) {
-
-        Table table =
-                tables.get(
-                        tableName);
-
-        if (table == null) {
-
-            System.out.println(
-                    "Table not found: "
-                            + tableName);
-
-            return new ArrayList<>();
+                tables = new HashMap<>();
         }
 
         /*
-         * Find column index.
+         * Create a table inside database.
          */
-        int columnIndex = -1;
+        public void createTable(
+                        Table table) {
 
-        List<Column> columns =
-                table.getSchema()
-                        .getColumns();
+                String tableName = table.getSchema()
+                                .getTableName();
 
-        for (int i = 0;
-             i < columns.size();
-             i++) {
+                tables.put(
+                                tableName,
+                                table);
 
-            if (columns.get(i)
-                    .getName()
-                    .equals(columnName)) {
-
-                columnIndex = i;
-                break;
-            }
+                System.out.println(
+                                "Table created: "
+                                                + tableName);
         }
 
         /*
-         * Column not found.
+         * Get a table by name.
          */
-        if (columnIndex == -1) {
+        public Table getTable(
+                        String tableName) {
 
-            System.out.println(
-                    "Column not found: "
-                            + columnName);
-
-            return new ArrayList<>();
+                return tables.get(
+                                tableName);
         }
 
         /*
-         * Store matching rows.
+         * Insert a row into a table.
          */
-        List<Row> result =
-                new ArrayList<>();
+        public void insert(
+                        String tableName,
+                        Row row) {
 
-        /*
-         * Check every row.
-         */
-        for (Row row :
-                table.getRows()) {
+                Table table = tables.get(
+                                tableName);
 
-            String rowValue =
-                    row.getValues()
-                            .get(columnIndex);
+                if (table == null) {
 
-            if (rowValue.equals(
-                    value)) {
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
 
-                result.add(
-                        row);
-            }
+                        return;
+                }
+
+                table.addRow(
+                                row);
+
+                System.out.println(
+                                "Row inserted into "
+                                                + tableName);
         }
 
-        return result;
-    }
+        /*
+         * SELECT * FROM table
+         */
+        public List<Row> selectAll(
+                        String tableName) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return new ArrayList<>();
+                }
+
+                return table.getRows();
+        }
+
+        /*
+         * SELECT *
+         * FROM table
+         * WHERE column = value
+         */
+        public List<Row> selectWhere(
+                        String tableName,
+                        String columnName,
+                        String value) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return new ArrayList<>();
+                }
+
+                /*
+                 * Find column index.
+                 */
+                int columnIndex = -1;
+
+                List<Column> columns = table.getSchema()
+                                .getColumns();
+
+                for (int i = 0; i < columns.size(); i++) {
+
+                        if (columns.get(i)
+                                        .getName()
+                                        .equals(columnName)) {
+
+                                columnIndex = i;
+                                break;
+                        }
+                }
+
+                /*
+                 * Column not found.
+                 */
+                if (columnIndex == -1) {
+
+                        System.out.println(
+                                        "Column not found: "
+                                                        + columnName);
+
+                        return new ArrayList<>();
+                }
+
+                /*
+                 * Store matching rows.
+                 */
+                List<Row> result = new ArrayList<>();
+
+                /*
+                 * Check every row.
+                 */
+                for (Row row : table.getRows()) {
+
+                        String rowValue = row.getValues()
+                                        .get(columnIndex);
+
+                        if (rowValue.equals(
+                                        value)) {
+
+                                result.add(
+                                                row);
+                        }
+                }
+
+                return result;
+        }
+
+        /*
+         * DELETE
+         * FROM table
+         * WHERE column = value
+         */
+        public void deleteWhere(
+                        String tableName,
+                        String columnName,
+                        String value) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return;
+                }
+
+                int columnIndex = -1;
+
+                List<Column> columns = table.getSchema()
+                                .getColumns();
+
+                for (int i = 0; i < columns.size(); i++) {
+
+                        if (columns.get(i)
+                                        .getName()
+                                        .equals(columnName)) {
+
+                                columnIndex = i;
+                                break;
+                        }
+                }
+
+                if (columnIndex == -1) {
+
+                        System.out.println(
+                                        "Column not found: "
+                                                        + columnName);
+
+                        return;
+                }
+
+                int finalColumnIndex = columnIndex;
+
+                table.getRows().removeIf(
+                                row -> row.getValues()
+                                                .get(finalColumnIndex)
+                                                .equals(value));
+
+                System.out.println(
+                                "Rows deleted successfully.");
+        }
 }

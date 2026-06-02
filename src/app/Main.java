@@ -13,39 +13,57 @@ public class Main {
 
     public static void main(String[] args) {
 
-        // Create columns
+        /*
+         * Create columns
+         */
         List<Column> columns =
                 new ArrayList<>();
 
         columns.add(
-                new Column("id", "INT"));
+                new Column(
+                        "id",
+                        "INT"));
 
         columns.add(
-                new Column("name", "STRING"));
+                new Column(
+                        "name",
+                        "STRING"));
 
         columns.add(
-                new Column("age", "INT"));
+                new Column(
+                        "age",
+                        "INT"));
 
-        // Create schema
+        /*
+         * Create schema
+         */
         Schema usersSchema =
                 new Schema(
                         "users",
                         columns);
 
-        // Create table
+        /*
+         * Create table
+         */
         Table usersTable =
                 new Table(
                         usersSchema);
 
-        // Create database
+        /*
+         * Create database
+         */
         Database db =
                 new Database();
 
-        // Test createTable()
+        /*
+         * Create table in database
+         */
         db.createTable(
                 usersTable);
 
-        // Test insert()
+        /*
+         * Insert rows
+         */
         db.insert(
                 "users",
                 new Row(
@@ -78,15 +96,20 @@ public class Main {
                         )
                 )
         );
-        
-        db.insert(
-        "unknown",
-        new Row(
-                List.of("1")
-        )
-);
 
-        // Test getTable()
+        /*
+         * Test invalid table
+         */
+        db.insert(
+                "unknown",
+                new Row(
+                        List.of("1")
+                )
+        );
+
+        /*
+         * Test getTable()
+         */
         Table loadedTable =
                 db.getTable(
                         "users"
@@ -103,21 +126,83 @@ public class Main {
                     row.getValues()
             );
         }
-        System.out.println(
-        "\nSelect All:"
-);
 
-List<Row> rows =
-        db.selectAll(
-                "users"
+        /*
+         * Test selectAll()
+         */
+        System.out.println(
+                "\nSelect All:"
         );
 
-for (Row row : rows) {
+        List<Row> rows =
+                db.selectAll(
+                        "users"
+                );
 
-    System.out.println(
-            row.getValues()
-    );
-}
-        
+        for (Row row : rows) {
+
+            System.out.println(
+                    row.getValues()
+            );
+        }
+
+        /*
+         * Test selectWhere()
+         */
+        System.out.println(
+                "\nUsers With Age 22:"
+        );
+
+        List<Row> ageResult =
+                db.selectWhere(
+                        "users",
+                        "age",
+                        "22"
+                );
+
+        for (Row row :
+                ageResult) {
+
+            System.out.println(
+                    row.getValues()
+            );
+        }
+
+        /*
+         * Test deleteWhere()
+         */
+        System.out.println(
+                "\nBefore Delete:"
+        );
+
+        for (Row row :
+                db.selectAll(
+                        "users"
+                )) {
+
+            System.out.println(
+                    row.getValues()
+            );
+        }
+
+        db.deleteWhere(
+                "users",
+                "age",
+                "17"
+        );
+
+        System.out.println(
+                "\nAfter Delete:"
+        );
+
+        for (Row row :
+                db.selectAll(
+                        "users"
+                )) {
+
+            System.out.println(
+                    row.getValues()
+            );
+        }
     }
 }
