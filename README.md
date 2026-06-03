@@ -34,6 +34,7 @@ Current capabilities:
 - ✅ Stores schemas and rows in files
 - ✅ Loads schemas, rows, and tables from disk
 - ✅ Uses in-memory hash indexes for fast lookups on indexed columns
+- ✅ Saves and loads index metadata to disk
 - ✅ Provides a basic storage-backed database API for create, insert, select, update, delete, and load
 
 Planned capabilities:
@@ -129,13 +130,16 @@ Persists schemas and rows to disk:
 ```
 schemas/users.schema
 data/users.data
+indexes/users.index
 ```
 
 Current storage operations:
 - `saveSchema(schema)`
 - `saveRows(table)`
+- `saveIndexes(table)`
 - `loadSchema(tableName)`
 - `loadRows(tableName)`
+- `loadIndexes(table)`
 - `loadTable(tableName)`
 
 ### `Index`
@@ -277,6 +281,7 @@ OwlDB/
 │   ├── database/         Database API (Phase 3)
 │   └── index/            Basic hash index (Phase 5)
 ├── data/                 Persisted table data
+├── indexes/              Persisted index metadata
 ├── schemas/              Persisted schema definitions
 └── README.md
 ```

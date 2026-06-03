@@ -5,6 +5,7 @@ import row.Row;
 import schema.Column;
 import schema.Schema;
 import table.Table;
+import storage.StorageEngine;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -98,6 +99,15 @@ public class Main {
                 "name");
 
         /*
+         * Save indexes to disk
+         */
+        StorageEngine storageEngine =
+                new StorageEngine();
+
+        storageEngine.saveIndexes(
+                usersTable);
+
+        /*
          * Show all rows
          */
         System.out.println(
@@ -112,7 +122,7 @@ public class Main {
         }
 
         /*
-         * Test id index
+         * Test ID index
          */
         System.out.println(
                 "\nSelect By ID:");
@@ -131,7 +141,7 @@ public class Main {
         }
 
         /*
-         * Test name index
+         * Test Name index
          */
         System.out.println(
                 "\nSelect By Name:");
@@ -148,5 +158,15 @@ public class Main {
             System.out.println(
                     row.getValues());
         }
+
+        /*
+         * Verify indexes
+         */
+        System.out.println(
+                "\nIndexes:");
+
+        System.out.println(
+                usersTable.getIndexes()
+                        .keySet());
     }
 }

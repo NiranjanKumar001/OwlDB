@@ -11,6 +11,7 @@ import table.Table;
 import row.Row;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
@@ -149,6 +150,68 @@ public class StorageEngine {
         }
     }
 
+    /*
+ * Save all indexes of a table.
+ *
+ * Example:
+ *
+ * users.index
+ *
+ * id
+ * name
+ */
+public void saveIndexes(
+        Table table) {
+
+    try {
+
+        /*
+         * Create indexes folder.
+         */
+        File folder =
+                new File(
+                        "../indexes");
+
+        folder.mkdirs();
+
+        String fileName =
+                "../indexes/"
+                        + table.getSchema()
+                                .getTableName()
+                        + ".index";
+
+        BufferedWriter writer =
+                new BufferedWriter(
+                        new FileWriter(
+                                fileName));
+
+        /*
+         * Save every indexed column.
+         */
+        for (String columnName :
+                table.getIndexes()
+                        .keySet()) {
+
+            writer.write(
+                    columnName);
+
+            writer.newLine();
+        }
+
+        writer.close();
+
+        System.out.println(
+                "Indexes saved successfully.");
+
+    } catch (Exception e) {
+
+        System.out.println(
+                "Error saving indexes.");
+
+        e.printStackTrace();
+    }
+}
+
     public Schema loadSchema(
             String tableName) {
 
@@ -260,32 +323,111 @@ public class StorageEngine {
         return rows;
     }
 
-    public Table loadTable(
-            String tableName) {
+    /*
+ * Load indexes from disk.
+ *
+ * Example:
+ *
+ * users.index
+ *
+ * id
+ * name
+ */
+public void loadIndexes(
+        Table table) {
 
-        // Load schema
-        Schema schema = loadSchema(
-                tableName);
+    try {
 
-        // Load rows
-        List<Row> rows = loadRows(
-                tableName);
+        String fileName =
+                "../indexes/"
+                        + table.getSchema()
+                                .getTableName()
+                        + ".index";
 
-        // Create table
-        Table table = new Table(
-                schema);
+        File file =
+                new File(
+                        fileName);
 
-        // Add loaded rows
-        for (Row row : rows) {
+        /*
+         * No index file yet.
+         */
+        if (!file.exists()) {
 
-            table.addRow(
-                    row);
+            return;
         }
 
-        System.out.println(
-                "Table loaded successfully.");
+        BufferedReader reader =
+                new BufferedReader(
+                        new FileReader(
+                                file));
 
-        return table;
+        String line;
+
+        while ((line =
+                reader.readLine())
+                != null) {
+
+            table.createIndex(
+                    line);
+        }
+
+        reader.close();
+
+        System.out.println(
+                "Indexes loaded successfully.");
+
+    } catch (Exception e) {
+
+        System.out.println(
+                "Error loading indexes.");
+
+        e.printStackTrace();
     }
+}
+
+    public Table loadTable(
+        String tableName) {
+
+    /*
+     * Load schema.
+     */
+    Schema schema =
+            loadSchema(
+                    tableName);
+
+    /*
+     * Load rows.
+     */
+    List<Row> rows =
+            loadRows(
+                    tableName);
+
+    /*
+     * Create table.
+     */
+    Table table =
+            new Table(
+                    schema);
+
+    /*
+     * Add rows.
+     */
+    for (Row row : rows) {
+
+        table.addRow(
+                row);
+    }
+
+    /*
+     * Load indexes.
+     */
+    loadIndexes(
+            table);
+
+    System.out.println(
+            "Table loaded successfully.");
+
+    return table;
+}
 
 }

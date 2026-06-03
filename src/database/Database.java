@@ -51,14 +51,20 @@ public class Database {
                                 table);
 
                 storageEngine.saveSchema(
-                                table.getSchema());
+        table.getSchema());
 
-                storageEngine.saveRows(
-                                table);
+storageEngine.saveRows(
+        table);
 
-                System.out.println(
-                                "Table created: "
-                                                + tableName);
+/*
+ * Save index metadata.
+ */
+storageEngine.saveIndexes(
+        table);
+
+System.out.println(
+        "Table created: "
+                + tableName);
         }
 
         /*

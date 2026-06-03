@@ -7,7 +7,7 @@ import index.Index;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 public class Table {
 
@@ -42,8 +42,11 @@ public class Table {
         this.rows =
                 new ArrayList<>();
 
+        /*
+         * Keeps insertion order.
+         */
         this.indexes =
-                new HashMap<>();
+                new LinkedHashMap<>();
     }
 
     /*
