@@ -33,7 +33,7 @@ Current capabilities:
 - ✅ Represents tables with schemas, columns, and rows
 - ✅ Stores schemas and rows in files
 - ✅ Loads schemas, rows, and tables from disk
-- ✅ Uses a basic in-memory index for fast id lookups
+- ✅ Uses in-memory hash indexes for fast lookups on indexed columns
 - ✅ Provides a basic storage-backed database API for create, insert, select, update, delete, and load
 
 Planned capabilities:
@@ -118,6 +118,12 @@ Rows:
   [2, "Rahul", 17]
 ```
 
+Tables can create indexes per column:
+```java
+usersTable.createIndex("id");
+usersTable.createIndex("name");
+```
+
 ### `StorageEngine`
 Persists schemas and rows to disk:
 ```
@@ -135,7 +141,7 @@ Current storage operations:
 ### `Index`
 Basic in-memory hash index:
 ```
-id -> List<Row>
+columnValue -> List<Row>
 ```
 
 Current index operations:
@@ -169,7 +175,7 @@ Database writes are now connected to storage:
 - `updateWhere()` changes matching rows and persists the updated file
 - `deleteWhere()` removes matching rows and persists the updated file
 - `loadTable()` restores a persisted table back into the in-memory database
-- `selectWhere()` uses the index for fast lookups on `id`
+- `selectWhere()` uses an index when the column is indexed
 
 Example persisted row data:
 ```txt
@@ -215,6 +221,10 @@ Database db = new Database();
 // 4. Register table
 db.createTable(usersTable);
 
+// 4.1 Create indexes
+usersTable.createIndex("id");
+usersTable.createIndex("name");
+
 // 5. Insert rows
 db.insert("users", new Row(List.of("1", "Niranjan", "22")));
 db.insert("users", new Row(List.of("2", "Rahul", "17")));
@@ -244,7 +254,7 @@ db.deleteWhere("users", "age", "17");
 | 2 | **Storage Engine** | Save/load schemas and rows from files | ✅ Complete |
 | 3 | **Database API** | Storage-backed `createTable()`, `insert()`, `selectWhere()`, `updateWhere()`, `deleteWhere()`, `loadTable()` | 🔄 In Progress |
 | 4 | **Query Language** | Tokenizer, Parser, Executor for SQL | ⏭️ Next |
-| 5 | **Indexing** | Basic hash index (id) → B+ trees | 🔄 In Progress |
+| 5 | **Indexing** | Hash indexes per column → B+ trees | 🔄 In Progress |
 | 6 | **Pages** | Buffer management, page-based storage | ⏳ Planned |
 | 7 | **Transactions** | BEGIN, COMMIT, ROLLBACK (ACID) | ⏳ Planned |
 | 8 | **WAL** | Write Ahead Log for crash recovery | ⏳ Planned |

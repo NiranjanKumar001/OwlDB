@@ -6,6 +6,8 @@ import index.Index;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 public class Table {
 
@@ -20,12 +22,14 @@ public class Table {
     private List<Row> rows;
 
     /*
-     * Primary index.
+     * All indexes.
      *
-     * For now:
-     * id -> List<Row>
+     * Example:
+     * id    -> Index
+     * name  -> Index
+     * age   -> Index
      */
-    private Index index;
+    private Map<String, Index> indexes;
 
     /*
      * Constructor
@@ -38,8 +42,8 @@ public class Table {
         this.rows =
                 new ArrayList<>();
 
-        this.index =
-                new Index();
+        this.indexes =
+                new HashMap<>();
     }
 
     /*
@@ -59,11 +63,11 @@ public class Table {
     }
 
     /*
-     * Get index.
+     * Get indexes.
      */
-    public Index getIndex() {
+    public Map<String, Index> getIndexes() {
 
-        return index;
+        return indexes;
     }
 
     /*
@@ -75,14 +79,92 @@ public class Table {
         rows.add(row);
 
         /*
-         * First column = id
+         * Update all existing indexes.
          */
-        String key =
-                row.getValues()
-                        .get(0);
+        for (String columnName :
+                indexes.keySet()) {
 
-        index.add(
-                key,
-                row);
+            int columnIndex = -1;
+
+            for (int i = 0;
+                 i < schema.getColumns().size();
+                 i++) {
+
+                if (schema.getColumns()
+                        .get(i)
+                        .getName()
+                        .equals(columnName)) {
+
+                    columnIndex = i;
+                    break;
+                }
+            }
+
+            if (columnIndex != -1) {
+
+                String key =
+                        row.getValues()
+                                .get(columnIndex);
+
+                indexes.get(columnName)
+                        .add(
+                                key,
+                                row);
+            }
+        }
+    }
+
+    /*
+     * Create index on a column.
+     */
+    public void createIndex(
+            String columnName) {
+
+        int columnIndex = -1;
+
+        for (int i = 0;
+             i < schema.getColumns().size();
+             i++) {
+
+            if (schema.getColumns()
+                    .get(i)
+                    .getName()
+                    .equals(columnName)) {
+
+                columnIndex = i;
+                break;
+            }
+        }
+
+        if (columnIndex == -1) {
+
+            System.out.println(
+                    "Column not found: "
+                            + columnName);
+
+            return;
+        }
+
+        Index index =
+                new Index();
+
+        for (Row row : rows) {
+
+            String key =
+                    row.getValues()
+                            .get(columnIndex);
+
+            index.add(
+                    key,
+                    row);
+        }
+
+        indexes.put(
+                columnName,
+                index);
+
+        System.out.println(
+                "Index created on "
+                        + columnName);
     }
 }

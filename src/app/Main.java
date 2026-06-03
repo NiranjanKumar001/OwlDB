@@ -70,10 +70,7 @@ public class Main {
                         List.of(
                                 "1",
                                 "Niranjan",
-                                "23"
-                        )
-                )
-        );
+                                "23")));
 
         db.insert(
                 "users",
@@ -81,10 +78,7 @@ public class Main {
                         List.of(
                                 "2",
                                 "Rahul",
-                                "17"
-                        )
-                )
-        );
+                                "17")));
 
         db.insert(
                 "users",
@@ -92,10 +86,16 @@ public class Main {
                         List.of(
                                 "3",
                                 "Priya",
-                                "20"
-                        )
-                )
-        );
+                                "20")));
+
+        /*
+         * Create indexes
+         */
+        usersTable.createIndex(
+                "id");
+
+        usersTable.createIndex(
+                "name");
 
         /*
          * Show all rows
@@ -112,37 +112,38 @@ public class Main {
         }
 
         /*
-         * Test index lookup
-         */
-        List<Row> foundRows =
-                usersTable
-                        .getIndex()
-                        .find("1");
-
-        System.out.println(
-                "\nIndex Lookup:");
-
-        for (Row row :
-                foundRows) {
-
-            System.out.println(
-                    row.getValues());
-        }
-
-        /*
-         * Test selectWhere()
+         * Test id index
          */
         System.out.println(
                 "\nSelect By ID:");
 
-        List<Row> result =
+        List<Row> idResult =
                 db.selectWhere(
                         "users",
                         "id",
                         "3");
 
         for (Row row :
-                result) {
+                idResult) {
+
+            System.out.println(
+                    row.getValues());
+        }
+
+        /*
+         * Test name index
+         */
+        System.out.println(
+                "\nSelect By Name:");
+
+        List<Row> nameResult =
+                db.selectWhere(
+                        "users",
+                        "name",
+                        "Niranjan");
+
+        for (Row row :
+                nameResult) {
 
             System.out.println(
                     row.getValues());

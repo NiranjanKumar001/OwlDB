@@ -6,6 +6,9 @@ import schema.Column;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import index.Index;
+
 import java.util.List;
 import java.io.File;
 import java.util.ArrayList;
@@ -141,22 +144,22 @@ public class Database {
                 }
 
                 /*
-                 * Fast path:
-                 * use index for id lookup.
+                 * Use index if available.
                  */
-                if (columnName.equals("id")) {
+                Index index = table.getIndexes()
+                                .get(columnName);
 
-                        List<Row> result = table.getIndex()
-                                        .find(value);
+                if (index != null) {
 
                         System.out.println(
                                         "Using index lookup.");
 
-                        return result;
+                        return index.find(
+                                        value);
                 }
 
                 /*
-                 * Normal scan for other columns.
+                 * Normal scan.
                  */
                 int columnIndex = getColumnIndex(
                                 table,
