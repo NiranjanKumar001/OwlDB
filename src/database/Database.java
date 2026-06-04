@@ -12,6 +12,8 @@ import index.Index;
 import java.util.List;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Comparator;
+
 import storage.StorageEngine;
 
 public class Database {
@@ -415,6 +417,50 @@ public class Database {
                                                 row);
                         }
                 }
+
+                return result;
+        }
+
+        /*
+         * ORDER BY column ASC
+         */
+        public List<Row> orderBy(
+                        String tableName,
+                        String columnName) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return new ArrayList<>();
+                }
+
+                int columnIndex = getColumnIndex(
+                                table,
+                                columnName);
+
+                if (columnIndex == -1) {
+
+                        System.out.println(
+                                        "Column not found: "
+                                                        + columnName);
+
+                        return new ArrayList<>();
+                }
+
+                List<Row> result = new ArrayList<>(
+                                table.getRows());
+
+                result.sort(
+                                Comparator.comparingInt(
+                                                row -> Integer.parseInt(
+                                                                row.getValues()
+                                                                                .get(columnIndex))));
 
                 return result;
         }

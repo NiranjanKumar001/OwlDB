@@ -188,30 +188,41 @@ public class Main {
                 }
 
                 System.out.println(
-        "\nUsers With Age >= 20:");
+                                "\nUsers With Age >= 20:");
 
-List<Row> greaterEqualRows =
-        db.selectGreaterThanOrEqual(
+                List<Row> greaterEqualRows = db.selectGreaterThanOrEqual(
+                                "users",
+                                "age",
+                                "20");
+
+                for (Row row : greaterEqualRows) {
+
+                        System.out.println(
+                                        row.getValues());
+                }
+
+                System.out.println(
+                                "\nUsers With Age <= 20:");
+
+                List<Row> lessEqualRows = db.selectLessThanOrEqual(
+                                "users",
+                                "age",
+                                "20");
+
+                for (Row row : lessEqualRows) {
+
+                        System.out.println(
+                                        row.getValues());
+                }
+                System.out.println(
+        "\nOrder By Age:");
+
+List<Row> sortedRows =
+        db.orderBy(
                 "users",
-                "age",
-                "20");
+                "age");
 
-for (Row row : greaterEqualRows) {
-
-    System.out.println(
-            row.getValues());
-}
-
-System.out.println(
-        "\nUsers With Age <= 20:");
-
-List<Row> lessEqualRows =
-        db.selectLessThanOrEqual(
-                "users",
-                "age",
-                "20");
-
-for (Row row : lessEqualRows) {
+for (Row row : sortedRows) {
 
     System.out.println(
             row.getValues());
