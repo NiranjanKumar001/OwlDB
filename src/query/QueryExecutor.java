@@ -305,6 +305,81 @@ public class QueryExecutor {
         }
 
         /*
+         * SELECT * FROM users
+         * WHERE age > 18
+         * ORDER BY age
+         * LIMIT 2
+         */
+        if (sql.matches(
+                "SELECT \\* FROM \\w+ WHERE \\w+ [><=]+ \\w+ ORDER BY \\w+ LIMIT \\d+")) {
+
+            String[] parts = sql.split(" ");
+
+            String tableName = parts[3];
+
+            String whereColumn = parts[5];
+
+            String operator = parts[6];
+
+            String whereValue = parts[7];
+
+            String orderColumn = parts[10];
+
+            int limit = Integer.parseInt(
+                    parts[12]);
+
+            List<Row> rows;
+
+            switch (operator) {
+
+                case ">":
+
+                    rows = database.selectGreaterThan(
+                            tableName,
+                            whereColumn,
+                            whereValue);
+                    break;
+
+                case "<":
+
+                    rows = database.selectLessThan(
+                            tableName,
+                            whereColumn,
+                            whereValue);
+                    break;
+
+                case "=":
+
+                    rows = database.selectWhere(
+                            tableName,
+                            whereColumn,
+                            whereValue);
+                    break;
+
+                default:
+
+                    System.out.println(
+                            "Unsupported operator.");
+
+                    return;
+            }
+
+            rows = database.orderRows(
+                    rows,
+                    tableName,
+                    orderColumn);
+
+            rows = database.limitRows(
+                    rows,
+                    limit);
+
+            printRows(
+                    rows);
+
+            return;
+        }
+
+        /*
          * SELECT * FROM users LIMIT 2
          */
         if (sql.matches(
