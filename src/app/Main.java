@@ -1,6 +1,7 @@
 package app;
 
 import database.Database;
+import query.QueryExecutor;
 import row.Row;
 import schema.Column;
 import schema.Schema;
@@ -215,17 +216,55 @@ public class Main {
                                         row.getValues());
                 }
                 System.out.println(
-        "\nOrder By Age:");
+                                "\nOrder By Age:");
 
-List<Row> sortedRows =
-        db.orderBy(
-                "users",
-                "age");
+                List<Row> sortedRows = db.orderBy(
+                                "users",
+                                "age");
 
-for (Row row : sortedRows) {
+                for (Row row : sortedRows) {
 
-    System.out.println(
-            row.getValues());
-}
+                        System.out.println(
+                                        row.getValues());
+                }
+                QueryExecutor executor = new QueryExecutor(
+                                db);
+
+                executor.execute(
+                                "SELECT * FROM users");
+
+                executor.execute(
+                                "SELECT * FROM users WHERE id = 1");
+
+                executor.execute(
+                                "SELECT * FROM users WHERE name = Niranjan");
+                executor.execute(
+                                "SELECT * FROM users WHERE age > 18");
+
+                executor.execute(
+                                "SELECT * FROM users WHERE age < 21");
+
+                executor.execute(
+                                "SELECT * FROM users WHERE age >= 20");
+
+                executor.execute(
+                                "SELECT * FROM users WHERE age <= 20");
+                executor.execute(
+                                "SELECT * FROM users ORDER BY age");
+                executor.execute(
+                                "INSERT INTO users VALUES (4,Amit,25)");
+                executor.execute(
+                                "SELECT * FROM users");
+                executor.execute(
+                                "DELETE FROM users WHERE id = 2");
+
+                executor.execute(
+                                "SELECT * FROM users");
+
+                executor.execute(
+                                "UPDATE users SET age = 24 WHERE id = 1");
+
+                executor.execute(
+                                "SELECT * FROM users");
         }
 }
