@@ -238,5 +238,10 @@ public class Main {
 
                 executor.execute(
                                 "SELECT AVG(age) FROM users");
+                executor.execute(
+                                "SELECT id,name FROM users");
+
+                executor.execute(
+                                "SELECT name,age FROM users");
         }
 }

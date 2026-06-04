@@ -257,6 +257,32 @@ public class QueryExecutor {
         }
 
         /*
+         * SELECT name,age FROM users
+         */
+        if (sql.matches(
+                "SELECT \\w+(,\\w+)+ FROM \\w+")) {
+
+            String[] parts = sql.split(" ");
+
+            String[] columns = parts[1]
+                    .split(",");
+
+            List<String> columnNames = Arrays.asList(
+                    columns);
+
+            String tableName = parts[3];
+
+            List<List<String>> rows = database.selectColumns(
+                    tableName,
+                    columnNames);
+
+            printMultiColumnValues(
+                    rows);
+
+            return;
+        }
+
+        /*
          * SELECT name FROM users
          */
         if (sql.matches(
@@ -407,6 +433,19 @@ public class QueryExecutor {
 
             System.out.println(
                     value);
+        }
+    }
+
+    private void printMultiColumnValues(
+            List<List<String>> rows) {
+
+        System.out.println(
+                "\nQuery Result:");
+
+        for (List<String> row : rows) {
+
+            System.out.println(
+                    row);
         }
     }
 

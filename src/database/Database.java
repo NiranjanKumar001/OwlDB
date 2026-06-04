@@ -931,4 +931,64 @@ public class Database {
                 return result;
         }
 
+        /*
+         * Select multiple columns.
+         */
+        public List<List<String>> selectColumns(
+                        String tableName,
+                        List<String> columnNames) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return new ArrayList<>();
+                }
+
+                List<Integer> columnIndexes = new ArrayList<>();
+
+                for (String columnName : columnNames) {
+
+                        int index = getColumnIndex(
+                                        table,
+                                        columnName);
+
+                        if (index == -1) {
+
+                                System.out.println(
+                                                "Column not found: "
+                                                                + columnName);
+
+                                return new ArrayList<>();
+                        }
+
+                        columnIndexes.add(
+                                        index);
+                }
+
+                List<List<String>> result = new ArrayList<>();
+
+                for (Row row : table.getRows()) {
+
+                        List<String> selectedValues = new ArrayList<>();
+
+                        for (int index : columnIndexes) {
+
+                                selectedValues.add(
+                                                row.getValues()
+                                                                .get(index));
+                        }
+
+                        result.add(
+                                        selectedValues);
+                }
+
+                return result;
+        }
+
 }
