@@ -1091,6 +1091,24 @@ public class Database {
         }
 
         /*
+         * OFFSET rows.
+         */
+        public List<Row> offsetRows(
+                        List<Row> rows,
+                        int offset) {
+
+                List<Row> result = new ArrayList<>();
+
+                for (int i = offset; i < rows.size(); i++) {
+
+                        result.add(
+                                        rows.get(i));
+                }
+
+                return result;
+        }
+
+        /*
          * LIMIT rows.
          */
         public List<Row> limit(

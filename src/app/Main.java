@@ -260,5 +260,7 @@ public class Main {
                                 "SELECT * FROM users WHERE age > 18 ORDER BY age LIMIT 2");
                 executor.execute(
                                 "SELECT DISTINCT age FROM users");
+                executor.execute(
+                                "SELECT * FROM users OFFSET 1 LIMIT 2");
         }
 }

@@ -350,6 +350,39 @@ public class QueryExecutor {
         }
 
         /*
+         * SELECT * FROM users OFFSET 1 LIMIT 2
+         */
+        if (sql.matches(
+                "SELECT \\* FROM \\w+ OFFSET \\d+ LIMIT \\d+")) {
+
+            String[] parts = sql.split(" ");
+
+            String tableName = parts[3];
+
+            int offset = Integer.parseInt(
+                    parts[5]);
+
+            int limit = Integer.parseInt(
+                    parts[7]);
+
+            List<Row> rows = database.selectAll(
+                    tableName);
+
+            rows = database.offsetRows(
+                    rows,
+                    offset);
+
+            rows = database.limitRows(
+                    rows,
+                    limit);
+
+            printRows(
+                    rows);
+
+            return;
+        }
+
+        /*
          * SELECT * FROM users
          * WHERE age > 18
          * ORDER BY age
