@@ -305,6 +305,29 @@ public class QueryExecutor {
         }
 
         /*
+         * SELECT * FROM users ORDER BY age DESC
+         */
+        if (sql.matches(
+                "SELECT \\* FROM \\w+ ORDER BY \\w+ DESC")) {
+
+            String[] parts = sql.split(" ");
+
+            String tableName = parts[3];
+
+            String columnName = parts[6];
+
+            List<Row> rows = database.orderBy(
+                    tableName,
+                    columnName,
+                    false);
+
+            printRows(
+                    rows);
+
+            return;
+        }
+
+        /*
          * SELECT * FROM users
          * WHERE age > 18
          * ORDER BY age
@@ -367,7 +390,8 @@ public class QueryExecutor {
             rows = database.orderRows(
                     rows,
                     tableName,
-                    orderColumn);
+                    orderColumn,
+                    true);
 
             rows = database.limitRows(
                     rows,

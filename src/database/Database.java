@@ -466,6 +466,60 @@ public class Database {
         }
 
         /*
+         * ORDER BY column.
+         *
+         * asc = true -> ASC
+         * asc = false -> DESC
+         */
+        public List<Row> orderBy(
+                        String tableName,
+                        String columnName,
+                        boolean asc) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return new ArrayList<>();
+                }
+
+                int columnIndex = getColumnIndex(
+                                table,
+                                columnName);
+
+                if (columnIndex == -1) {
+
+                        System.out.println(
+                                        "Column not found: "
+                                                        + columnName);
+
+                        return new ArrayList<>();
+                }
+
+                List<Row> result = new ArrayList<>(
+                                table.getRows());
+
+                result.sort(
+                                Comparator.comparingInt(
+                                                row -> Integer.parseInt(
+                                                                row.getValues()
+                                                                                .get(columnIndex))));
+
+                if (!asc) {
+
+                        java.util.Collections.reverse(
+                                        result);
+                }
+
+                return result;
+        }
+
+        /*
          * DELETE
          * FROM table
          * WHERE column = value
@@ -1024,10 +1078,14 @@ public class Database {
                 return result;
         }
 
+        /*
+         * Sort existing rows.
+         */
         public List<Row> orderRows(
                         List<Row> rows,
                         String tableName,
-                        String columnName) {
+                        String columnName,
+                        boolean asc) {
 
                 Table table = tables.get(
                                 tableName);
@@ -1041,6 +1099,12 @@ public class Database {
                                                 row -> Integer.parseInt(
                                                                 row.getValues()
                                                                                 .get(columnIndex))));
+
+                if (!asc) {
+
+                        java.util.Collections.reverse(
+                                        rows);
+                }
 
                 return rows;
         }

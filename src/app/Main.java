@@ -247,5 +247,9 @@ public class Main {
                                 "SELECT * FROM users LIMIT 2");
                 executor.execute(
                                 "SELECT * FROM users WHERE age > 18 ORDER BY age LIMIT 2");
+                executor.execute(
+        "SELECT * FROM users ORDER BY age DESC");
+                executor.execute(
+        "SELECT * FROM users WHERE age > 18 ORDER BY age LIMIT 2");
         }
 }
