@@ -267,6 +267,11 @@ public class Main {
                 executor.execute(
                                 "SELECT * FROM users");
                 executor.execute(
-        "SELECT MAX(age) FROM users");
+                                "SELECT MAX(age) FROM users");
+                executor.execute(
+                                "SELECT name FROM users");
+
+                executor.execute(
+                                "SELECT age FROM users");
         }
 }

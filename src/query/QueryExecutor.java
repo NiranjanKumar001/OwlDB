@@ -8,329 +8,325 @@ import java.util.Arrays;
 
 public class QueryExecutor {
 
-private Database database;
+    private Database database;
 
-public QueryExecutor(
-        Database database) {
+    public QueryExecutor(
+            Database database) {
 
-    this.database = database;
-}
-
-/*
- * Print query result.
- */
-private void printRows(
-        List<Row> rows) {
-
-    System.out.println(
-            "\nQuery Result:");
-
-    for (Row row : rows) {
-
-        System.out.println(
-                row.getValues());
-    }
-}
-
-/*
- * Execute SQL query.
- */
-public void execute(
-        String sql) {
-
-    sql = sql.trim();
-
-    /*
-     * INSERT INTO users VALUES (...)
-     */
-    if (sql.startsWith(
-            "INSERT INTO")) {
-
-        String[] parts =
-                sql.split(" ", 4);
-
-        String tableName =
-                parts[2];
-
-        String valuesPart =
-                sql.substring(
-                        sql.indexOf("(") + 1,
-                        sql.lastIndexOf(")"));
-
-        String[] values =
-                valuesPart.split(",");
-
-        database.insert(
-                tableName,
-                new Row(
-                        Arrays.asList(
-                                values)));
-
-        System.out.println(
-                "Insert successful.");
-
-        return;
+        this.database = database;
     }
 
     /*
-     * DELETE FROM users WHERE id = 2
+     * Print query result.
      */
-    if (sql.startsWith(
-            "DELETE FROM")) {
-
-        String[] parts =
-                sql.split(" ");
-
-        String tableName =
-                parts[2];
-
-        String columnName =
-                parts[4];
-
-        String value =
-                parts[6];
-
-        database.deleteWhere(
-                tableName,
-                columnName,
-                value);
-
-        System.out.println(
-                "Delete successful.");
-
-        return;
-    }
-
-    /*
-     * UPDATE users
-     * SET age = 24
-     * WHERE id = 1
-     */
-    if (sql.startsWith(
-            "UPDATE")) {
-
-        String[] parts =
-                sql.split(" ");
-
-        String tableName =
-                parts[1];
-
-        String updateColumn =
-                parts[3];
-
-        String newValue =
-                parts[5];
-
-        String whereColumn =
-                parts[7];
-
-        String whereValue =
-                parts[9];
-
-        database.updateWhere(
-                tableName,
-                whereColumn,
-                whereValue,
-                updateColumn,
-                newValue);
-
-        System.out.println(
-                "Update successful.");
-
-        return;
-    }
-
-    /*
- * SELECT MAX(age) FROM users
- */
-if (sql.matches(
-        "SELECT MAX\\(\\w+\\) FROM \\w+")) {
-
-    String columnName =
-            sql.substring(
-                    sql.indexOf("(") + 1,
-                    sql.indexOf(")"));
-
-    String[] parts =
-            sql.split(" ");
-
-    String tableName =
-            parts[3];
-
-    int result =
-            database.max(
-                    tableName,
-                    columnName);
-
-    System.out.println(
-            "\nQuery Result:");
-
-    System.out.println(
-            result);
-
-    return;
-}
-
-    /*
-     * SELECT COUNT(*) FROM users
-     */
-    if (sql.matches(
-            "SELECT COUNT\\(\\*\\) FROM \\w+")) {
-
-        String[] parts =
-                sql.split(" ");
-
-        String tableName =
-                parts[3];
-
-        int count =
-                database.count(
-                        tableName);
+    private void printRows(
+            List<Row> rows) {
 
         System.out.println(
                 "\nQuery Result:");
 
-        System.out.println(
-                count);
+        for (Row row : rows) {
 
-        return;
+            System.out.println(
+                    row.getValues());
+        }
     }
 
     /*
-     * SELECT * FROM users
+     * Execute SQL query.
      */
-    if (sql.matches(
-            "SELECT \\* FROM \\w+")) {
+    public void execute(
+            String sql) {
 
-        String[] parts =
-                sql.split(" ");
+        sql = sql.trim();
 
-        String tableName =
-                parts[3];
+        /*
+         * INSERT INTO users VALUES (...)
+         */
+        if (sql.startsWith(
+                "INSERT INTO")) {
 
-        List<Row> rows =
-                database.selectAll(
-                        tableName);
+            String[] parts = sql.split(" ", 4);
 
-        printRows(
-                rows);
+            String tableName = parts[2];
 
-        return;
-    }
+            String valuesPart = sql.substring(
+                    sql.indexOf("(") + 1,
+                    sql.lastIndexOf(")"));
 
-    /*
-     * SELECT * FROM users ORDER BY age
-     */
-    if (sql.contains(
-            "ORDER BY")) {
+            String[] values = valuesPart.split(",");
 
-        String[] parts =
-                sql.split(" ");
+            database.insert(
+                    tableName,
+                    new Row(
+                            Arrays.asList(
+                                    values)));
 
-        String tableName =
-                parts[3];
+            System.out.println(
+                    "Insert successful.");
 
-        String columnName =
-                parts[6];
-
-        List<Row> rows =
-                database.orderBy(
-                        tableName,
-                        columnName);
-
-        printRows(
-                rows);
-
-        return;
-    }
-
-    /*
-     * SELECT with WHERE
-     */
-    if (sql.contains(
-            "WHERE")) {
-
-        String[] parts =
-                sql.split(" ");
-
-        String tableName =
-                parts[3];
-
-        String columnName =
-                parts[5];
-
-        String operator =
-                parts[6];
-
-        String value =
-                parts[7];
-
-        List<Row> rows;
-
-        switch (operator) {
-
-            case "=":
-
-                rows =
-                        database.selectWhere(
-                                tableName,
-                                columnName,
-                                value);
-                break;
-
-            case ">":
-
-                rows =
-                        database.selectGreaterThan(
-                                tableName,
-                                columnName,
-                                value);
-                break;
-
-            case "<":
-
-                rows =
-                        database.selectLessThan(
-                                tableName,
-                                columnName,
-                                value);
-                break;
-
-            case ">=":
-
-                rows =
-                        database.selectGreaterThanOrEqual(
-                                tableName,
-                                columnName,
-                                value);
-                break;
-
-            case "<=":
-
-                rows =
-                        database.selectLessThanOrEqual(
-                                tableName,
-                                columnName,
-                                value);
-                break;
-
-            default:
-
-                System.out.println(
-                        "Unsupported operator.");
-
-                return;
+            return;
         }
 
-        printRows(
-                rows);
+        /*
+         * DELETE FROM users WHERE id = 2
+         */
+        if (sql.startsWith(
+                "DELETE FROM")) {
 
-        return;
+            String[] parts = sql.split(" ");
+
+            String tableName = parts[2];
+
+            String columnName = parts[4];
+
+            String value = parts[6];
+
+            database.deleteWhere(
+                    tableName,
+                    columnName,
+                    value);
+
+            System.out.println(
+                    "Delete successful.");
+
+            return;
+        }
+
+        /*
+         * UPDATE users
+         * SET age = 24
+         * WHERE id = 1
+         */
+        if (sql.startsWith(
+                "UPDATE")) {
+
+            String[] parts = sql.split(" ");
+
+            String tableName = parts[1];
+
+            String updateColumn = parts[3];
+
+            String newValue = parts[5];
+
+            String whereColumn = parts[7];
+
+            String whereValue = parts[9];
+
+            database.updateWhere(
+                    tableName,
+                    whereColumn,
+                    whereValue,
+                    updateColumn,
+                    newValue);
+
+            System.out.println(
+                    "Update successful.");
+
+            return;
+        }
+
+        /*
+         * SELECT MAX(age) FROM users
+         */
+        if (sql.matches(
+                "SELECT MAX\\(\\w+\\) FROM \\w+")) {
+
+            String columnName = sql.substring(
+                    sql.indexOf("(") + 1,
+                    sql.indexOf(")"));
+
+            String[] parts = sql.split(" ");
+
+            String tableName = parts[3];
+
+            int result = database.max(
+                    tableName,
+                    columnName);
+
+            System.out.println(
+                    "\nQuery Result:");
+
+            System.out.println(
+                    result);
+
+            return;
+        }
+
+        /*
+         * SELECT COUNT(*) FROM users
+         */
+        if (sql.matches(
+                "SELECT COUNT\\(\\*\\) FROM \\w+")) {
+
+            String[] parts = sql.split(" ");
+
+            String tableName = parts[3];
+
+            int count = database.count(
+                    tableName);
+
+            System.out.println(
+                    "\nQuery Result:");
+
+            System.out.println(
+                    count);
+
+            return;
+        }
+
+        /*
+         * SELECT name FROM users
+         */
+        if (sql.matches(
+                "SELECT \\w+ FROM \\w+")) {
+
+            String[] parts = sql.split(" ");
+
+            String columnName = parts[1];
+
+            String tableName = parts[3];
+
+            List<String> values = database.selectColumn(
+                    tableName,
+                    columnName);
+
+            printValues(
+                    values);
+
+            return;
+        }
+
+        /*
+         * SELECT * FROM users
+         */
+        if (sql.matches(
+                "SELECT \\* FROM \\w+")) {
+
+            String[] parts = sql.split(" ");
+
+            String tableName = parts[3];
+
+            List<Row> rows = database.selectAll(
+                    tableName);
+
+            printRows(
+                    rows);
+
+            return;
+        }
+
+        /*
+         * SELECT * FROM users ORDER BY age
+         */
+        if (sql.contains(
+                "ORDER BY")) {
+
+            String[] parts = sql.split(" ");
+
+            String tableName = parts[3];
+
+            String columnName = parts[6];
+
+            List<Row> rows = database.orderBy(
+                    tableName,
+                    columnName);
+
+            printRows(
+                    rows);
+
+            return;
+        }
+
+        /*
+         * SELECT with WHERE
+         */
+        if (sql.contains(
+                "WHERE")) {
+
+            String[] parts = sql.split(" ");
+
+            String tableName = parts[3];
+
+            String columnName = parts[5];
+
+            String operator = parts[6];
+
+            String value = parts[7];
+
+            List<Row> rows;
+
+            switch (operator) {
+
+                case "=":
+
+                    rows = database.selectWhere(
+                            tableName,
+                            columnName,
+                            value);
+                    break;
+
+                case ">":
+
+                    rows = database.selectGreaterThan(
+                            tableName,
+                            columnName,
+                            value);
+                    break;
+
+                case "<":
+
+                    rows = database.selectLessThan(
+                            tableName,
+                            columnName,
+                            value);
+                    break;
+
+                case ">=":
+
+                    rows = database.selectGreaterThanOrEqual(
+                            tableName,
+                            columnName,
+                            value);
+                    break;
+
+                case "<=":
+
+                    rows = database.selectLessThanOrEqual(
+                            tableName,
+                            columnName,
+                            value);
+                    break;
+
+                default:
+
+                    System.out.println(
+                            "Unsupported operator.");
+
+                    return;
+            }
+
+            printRows(
+                    rows);
+
+            return;
+        }
+
+        System.out.println(
+                "Unsupported query.");
     }
 
-    System.out.println(
-            "Unsupported query.");
-}
+    private void printValues(
+            List<String> values) {
 
+        System.out.println(
+                "\nQuery Result:");
+
+        for (String value : values) {
+
+            System.out.println(
+                    value);
+        }
+    }
 
 }

@@ -761,4 +761,49 @@ public class Database {
 
                 return max;
         }
+
+        /*
+         * Select a single column.
+         */
+        public List<String> selectColumn(
+                        String tableName,
+                        String columnName) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return new ArrayList<>();
+                }
+
+                int columnIndex = getColumnIndex(
+                                table,
+                                columnName);
+
+                if (columnIndex == -1) {
+
+                        System.out.println(
+                                        "Column not found: "
+                                                        + columnName);
+
+                        return new ArrayList<>();
+                }
+
+                List<String> result = new ArrayList<>();
+
+                for (Row row : table.getRows()) {
+
+                        result.add(
+                                        row.getValues()
+                                                        .get(columnIndex));
+                }
+
+                return result;
+        }
+
 }
