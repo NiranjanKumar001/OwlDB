@@ -763,6 +763,131 @@ public class Database {
         }
 
         /*
+         * Find minimum value in a column.
+         */
+        public int min(
+                        String tableName,
+                        String columnName) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return 0;
+                }
+
+                int columnIndex = getColumnIndex(
+                                table,
+                                columnName);
+
+                if (columnIndex == -1) {
+
+                        System.out.println(
+                                        "Column not found: "
+                                                        + columnName);
+
+                        return 0;
+                }
+
+                int min = Integer.MAX_VALUE;
+
+                for (Row row : table.getRows()) {
+
+                        int value = Integer.parseInt(
+                                        row.getValues()
+                                                        .get(columnIndex));
+
+                        if (value < min) {
+
+                                min = value;
+                        }
+                }
+
+                return min;
+        }
+
+        /*
+         * Find sum of a column.
+         */
+        public int sum(
+                        String tableName,
+                        String columnName) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return 0;
+                }
+
+                int columnIndex = getColumnIndex(
+                                table,
+                                columnName);
+
+                if (columnIndex == -1) {
+
+                        System.out.println(
+                                        "Column not found: "
+                                                        + columnName);
+
+                        return 0;
+                }
+
+                int sum = 0;
+
+                for (Row row : table.getRows()) {
+
+                        sum += Integer.parseInt(
+                                        row.getValues()
+                                                        .get(columnIndex));
+                }
+
+                return sum;
+        }
+
+        /*
+         * Find average of a column.
+         */
+        public int avg(
+                        String tableName,
+                        String columnName) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return 0;
+                }
+
+                if (table.getRows()
+                                .isEmpty()) {
+
+                        return 0;
+                }
+
+                return sum(
+                                tableName,
+                                columnName)
+                                / table.getRows()
+                                                .size();
+        }
+
+        /*
          * Select a single column.
          */
         public List<String> selectColumn(

@@ -154,6 +154,87 @@ public class QueryExecutor {
         }
 
         /*
+         * SELECT MIN(age) FROM users
+         */
+        if (sql.matches(
+                "SELECT MIN\\(\\w+\\) FROM \\w+")) {
+
+            String columnName = sql.substring(
+                    sql.indexOf("(") + 1,
+                    sql.indexOf(")"));
+
+            String[] parts = sql.split(" ");
+
+            String tableName = parts[3];
+
+            int result = database.min(
+                    tableName,
+                    columnName);
+
+            System.out.println(
+                    "\nQuery Result:");
+
+            System.out.println(
+                    result);
+
+            return;
+        }
+
+        /*
+         * SELECT SUM(age) FROM users
+         */
+        if (sql.matches(
+                "SELECT SUM\\(\\w+\\) FROM \\w+")) {
+
+            String columnName = sql.substring(
+                    sql.indexOf("(") + 1,
+                    sql.indexOf(")"));
+
+            String[] parts = sql.split(" ");
+
+            String tableName = parts[3];
+
+            int result = database.sum(
+                    tableName,
+                    columnName);
+
+            System.out.println(
+                    "\nQuery Result:");
+
+            System.out.println(
+                    result);
+
+            return;
+        }
+
+        /*
+         * SELECT AVG(age) FROM users
+         */
+        if (sql.matches(
+                "SELECT AVG\\(\\w+\\) FROM \\w+")) {
+
+            String columnName = sql.substring(
+                    sql.indexOf("(") + 1,
+                    sql.indexOf(")"));
+
+            String[] parts = sql.split(" ");
+
+            String tableName = parts[3];
+
+            int result = database.avg(
+                    tableName,
+                    columnName);
+
+            System.out.println(
+                    "\nQuery Result:");
+
+            System.out.println(
+                    result);
+
+            return;
+        }
+
+        /*
          * SELECT COUNT(*) FROM users
          */
         if (sql.matches(

@@ -231,47 +231,12 @@ public class Main {
                                 db);
 
                 executor.execute(
-                                "SELECT * FROM users");
+                                "SELECT MIN(age) FROM users");
 
                 executor.execute(
-                                "SELECT * FROM users WHERE id = 1");
+                                "SELECT SUM(age) FROM users");
 
                 executor.execute(
-                                "SELECT * FROM users WHERE name = Niranjan");
-                executor.execute(
-                                "SELECT * FROM users WHERE age > 18");
-
-                executor.execute(
-                                "SELECT * FROM users WHERE age < 21");
-
-                executor.execute(
-                                "SELECT * FROM users WHERE age >= 20");
-
-                executor.execute(
-                                "SELECT * FROM users WHERE age <= 20");
-                executor.execute(
-                                "SELECT * FROM users ORDER BY age");
-                executor.execute(
-                                "INSERT INTO users VALUES (4,Amit,25)");
-                executor.execute(
-                                "SELECT * FROM users");
-                executor.execute(
-                                "DELETE FROM users WHERE id = 2");
-
-                executor.execute(
-                                "SELECT * FROM users");
-
-                executor.execute(
-                                "UPDATE users SET age = 24 WHERE id = 1");
-
-                executor.execute(
-                                "SELECT * FROM users");
-                executor.execute(
-                                "SELECT MAX(age) FROM users");
-                executor.execute(
-                                "SELECT name FROM users");
-
-                executor.execute(
-                                "SELECT age FROM users");
+                                "SELECT AVG(age) FROM users");
         }
 }
