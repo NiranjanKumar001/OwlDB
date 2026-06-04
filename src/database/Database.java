@@ -1024,4 +1024,41 @@ public class Database {
                 return result;
         }
 
+        public List<Row> orderRows(
+                        List<Row> rows,
+                        String tableName,
+                        String columnName) {
+
+                Table table = tables.get(
+                                tableName);
+
+                int columnIndex = getColumnIndex(
+                                table,
+                                columnName);
+
+                rows.sort(
+                                Comparator.comparingInt(
+                                                row -> Integer.parseInt(
+                                                                row.getValues()
+                                                                                .get(columnIndex))));
+
+                return rows;
+        }
+
+        public List<Row> limitRows(
+                        List<Row> rows,
+                        int limit) {
+
+                List<Row> result = new ArrayList<>();
+
+                for (int i = 0; i < rows.size()
+                                && i < limit; i++) {
+
+                        result.add(
+                                        rows.get(i));
+                }
+
+                return result;
+        }
+
 }
