@@ -991,4 +991,37 @@ public class Database {
                 return result;
         }
 
+        /*
+         * LIMIT rows.
+         */
+        public List<Row> limit(
+                        String tableName,
+                        int limit) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return new ArrayList<>();
+                }
+
+                List<Row> rows = table.getRows();
+
+                List<Row> result = new ArrayList<>();
+
+                for (int i = 0; i < rows.size()
+                                && i < limit; i++) {
+
+                        result.add(
+                                        rows.get(i));
+                }
+
+                return result;
+        }
+
 }

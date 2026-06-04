@@ -305,6 +305,29 @@ public class QueryExecutor {
         }
 
         /*
+         * SELECT * FROM users LIMIT 2
+         */
+        if (sql.matches(
+                "SELECT \\* FROM \\w+ LIMIT \\d+")) {
+
+            String[] parts = sql.split(" ");
+
+            String tableName = parts[3];
+
+            int limit = Integer.parseInt(
+                    parts[5]);
+
+            List<Row> rows = database.limit(
+                    tableName,
+                    limit);
+
+            printRows(
+                    rows);
+
+            return;
+        }
+
+        /*
          * SELECT * FROM users
          */
         if (sql.matches(

@@ -243,5 +243,7 @@ public class Main {
 
                 executor.execute(
                                 "SELECT name,age FROM users");
+                executor.execute(
+        "SELECT * FROM users LIMIT 2");
         }
 }
