@@ -266,5 +266,7 @@ public class Main {
 
                 executor.execute(
                                 "SELECT * FROM users");
+                executor.execute(
+        "SELECT MAX(age) FROM users");
         }
 }

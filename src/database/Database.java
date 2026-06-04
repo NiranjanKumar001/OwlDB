@@ -690,4 +690,75 @@ public class Database {
                 System.out.println(
                                 "All tables loaded.");
         }
+
+        /*
+         * Count rows in a table.
+         */
+        public int count(
+                        String tableName) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return 0;
+                }
+
+                return table.getRows()
+                                .size();
+        }
+
+        /*
+         * Find maximum value in a column.
+         */
+        public int max(
+                        String tableName,
+                        String columnName) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return 0;
+                }
+
+                int columnIndex = getColumnIndex(
+                                table,
+                                columnName);
+
+                if (columnIndex == -1) {
+
+                        System.out.println(
+                                        "Column not found: "
+                                                        + columnName);
+
+                        return 0;
+                }
+
+                int max = Integer.MIN_VALUE;
+
+                for (Row row : table.getRows()) {
+
+                        int value = Integer.parseInt(
+                                        row.getValues()
+                                                        .get(columnIndex));
+
+                        if (value > max) {
+
+                                max = value;
+                        }
+                }
+
+                return max;
+        }
 }
