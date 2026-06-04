@@ -51,20 +51,20 @@ public class Database {
                                 table);
 
                 storageEngine.saveSchema(
-        table.getSchema());
+                                table.getSchema());
 
-storageEngine.saveRows(
-        table);
+                storageEngine.saveRows(
+                                table);
 
-/*
- * Save index metadata.
- */
-storageEngine.saveIndexes(
-        table);
+                /*
+                 * Save index metadata.
+                 */
+                storageEngine.saveIndexes(
+                                table);
 
-System.out.println(
-        "Table created: "
-                + tableName);
+                System.out.println(
+                                "Table created: "
+                                                + tableName);
         }
 
         /*
@@ -196,6 +196,230 @@ System.out.println(
         }
 
         /*
+         * SELECT *
+         * FROM table
+         * WHERE column > value
+         */
+        public List<Row> selectGreaterThan(
+                        String tableName,
+                        String columnName,
+                        String value) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return new ArrayList<>();
+                }
+
+                int columnIndex = getColumnIndex(
+                                table,
+                                columnName);
+
+                if (columnIndex == -1) {
+
+                        System.out.println(
+                                        "Column not found: "
+                                                        + columnName);
+
+                        return new ArrayList<>();
+                }
+
+                List<Row> result = new ArrayList<>();
+
+                int targetValue = Integer.parseInt(
+                                value);
+
+                for (Row row : table.getRows()) {
+
+                        int rowValue = Integer.parseInt(
+                                        row.getValues()
+                                                        .get(columnIndex));
+
+                        if (rowValue > targetValue) {
+
+                                result.add(
+                                                row);
+                        }
+                }
+
+                return result;
+        }
+
+        /*
+         * SELECT *
+         * FROM table
+         * WHERE column < value
+         */
+        public List<Row> selectLessThan(
+                        String tableName,
+                        String columnName,
+                        String value) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return new ArrayList<>();
+                }
+
+                int columnIndex = getColumnIndex(
+                                table,
+                                columnName);
+
+                if (columnIndex == -1) {
+
+                        System.out.println(
+                                        "Column not found: "
+                                                        + columnName);
+
+                        return new ArrayList<>();
+                }
+
+                List<Row> result = new ArrayList<>();
+
+                int targetValue = Integer.parseInt(
+                                value);
+
+                for (Row row : table.getRows()) {
+
+                        int rowValue = Integer.parseInt(
+                                        row.getValues()
+                                                        .get(columnIndex));
+
+                        if (rowValue < targetValue) {
+
+                                result.add(
+                                                row);
+                        }
+                }
+
+                return result;
+        }
+
+        /*
+         * SELECT *
+         * FROM table
+         * WHERE column >= value
+         */
+        public List<Row> selectGreaterThanOrEqual(
+                        String tableName,
+                        String columnName,
+                        String value) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return new ArrayList<>();
+                }
+
+                int columnIndex = getColumnIndex(
+                                table,
+                                columnName);
+
+                if (columnIndex == -1) {
+
+                        System.out.println(
+                                        "Column not found: "
+                                                        + columnName);
+
+                        return new ArrayList<>();
+                }
+
+                List<Row> result = new ArrayList<>();
+
+                int targetValue = Integer.parseInt(
+                                value);
+
+                for (Row row : table.getRows()) {
+
+                        int rowValue = Integer.parseInt(
+                                        row.getValues()
+                                                        .get(columnIndex));
+
+                        if (rowValue >= targetValue) {
+
+                                result.add(
+                                                row);
+                        }
+                }
+
+                return result;
+        }
+
+        /*
+         * SELECT *
+         * FROM table
+         * WHERE column <= value
+         */
+        public List<Row> selectLessThanOrEqual(
+                        String tableName,
+                        String columnName,
+                        String value) {
+
+                Table table = tables.get(
+                                tableName);
+
+                if (table == null) {
+
+                        System.out.println(
+                                        "Table not found: "
+                                                        + tableName);
+
+                        return new ArrayList<>();
+                }
+
+                int columnIndex = getColumnIndex(
+                                table,
+                                columnName);
+
+                if (columnIndex == -1) {
+
+                        System.out.println(
+                                        "Column not found: "
+                                                        + columnName);
+
+                        return new ArrayList<>();
+                }
+
+                List<Row> result = new ArrayList<>();
+
+                int targetValue = Integer.parseInt(
+                                value);
+
+                for (Row row : table.getRows()) {
+
+                        int rowValue = Integer.parseInt(
+                                        row.getValues()
+                                                        .get(columnIndex));
+
+                        if (rowValue <= targetValue) {
+
+                                result.add(
+                                                row);
+                        }
+                }
+
+                return result;
+        }
+
+        /*
          * DELETE
          * FROM table
          * WHERE column = value
@@ -236,7 +460,11 @@ System.out.println(
                                 row -> row.getValues()
                                                 .get(finalColumnIndex)
                                                 .equals(value));
+                table.rebuildIndexes();
                 storageEngine.saveRows(
+                                table);
+
+                storageEngine.saveIndexes(
                                 table);
 
                 System.out.println(
@@ -309,7 +537,11 @@ System.out.println(
                                 updatedRows++;
                         }
                 }
+                table.rebuildIndexes();
                 storageEngine.saveRows(
+                                table);
+
+                storageEngine.saveIndexes(
                                 table);
 
                 System.out.println(

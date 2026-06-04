@@ -170,4 +170,26 @@ public class Table {
                 "Index created on "
                         + columnName);
     }
+
+    /*
+ * Rebuild all indexes.
+ */
+public void rebuildIndexes() {
+
+    Map<String, Index> oldIndexes =
+            new LinkedHashMap<>(
+                    indexes);
+
+    indexes.clear();
+
+    for (String columnName :
+            oldIndexes.keySet()) {
+
+        createIndex(
+                columnName);
+    }
+
+    System.out.println(
+            "Indexes rebuilt.");
+}
 }
