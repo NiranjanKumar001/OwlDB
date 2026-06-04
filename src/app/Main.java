@@ -85,6 +85,13 @@ public class Main {
                                                                 "3",
                                                                 "Priya",
                                                                 "20")));
+                db.insert(
+                                "users",
+                                new Row(
+                                                List.of(
+                                                                "4",
+                                                                "Amit",
+                                                                "20")));
 
                 /*
                  * Create indexes
@@ -248,8 +255,10 @@ public class Main {
                 executor.execute(
                                 "SELECT * FROM users WHERE age > 18 ORDER BY age LIMIT 2");
                 executor.execute(
-        "SELECT * FROM users ORDER BY age DESC");
+                                "SELECT * FROM users ORDER BY age DESC");
                 executor.execute(
-        "SELECT * FROM users WHERE age > 18 ORDER BY age LIMIT 2");
+                                "SELECT * FROM users WHERE age > 18 ORDER BY age LIMIT 2");
+                executor.execute(
+                                "SELECT DISTINCT age FROM users");
         }
 }

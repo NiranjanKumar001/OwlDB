@@ -283,6 +283,28 @@ public class QueryExecutor {
         }
 
         /*
+         * SELECT DISTINCT age FROM users
+         */
+        if (sql.matches(
+                "SELECT DISTINCT \\w+ FROM \\w+")) {
+
+            String[] parts = sql.split(" ");
+
+            String columnName = parts[2];
+
+            String tableName = parts[4];
+
+            List<String> values = database.selectDistinct(
+                    tableName,
+                    columnName);
+
+            printValues(
+                    values);
+
+            return;
+        }
+
+        /*
          * SELECT name FROM users
          */
         if (sql.matches(
