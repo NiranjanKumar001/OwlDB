@@ -1,6 +1,7 @@
 package app;
 
 import database.Database;
+import page.PageManager;
 import query.QueryExecutor;
 import row.Row;
 import schema.Column;
@@ -262,5 +263,43 @@ public class Main {
                                 "SELECT DISTINCT age FROM users");
                 executor.execute(
                                 "SELECT * FROM users OFFSET 1 LIMIT 2");
+
+                PageManager pm = new PageManager(
+                                2);
+
+                pm.insertRow(
+                                new Row(
+                                                List.of(
+                                                                "1",
+                                                                "A",
+                                                                "10")));
+
+                pm.insertRow(
+                                new Row(
+                                                List.of(
+                                                                "2",
+                                                                "B",
+                                                                "20")));
+
+                pm.insertRow(
+                                new Row(
+                                                List.of(
+                                                                "3",
+                                                                "C",
+                                                                "30")));
+
+                System.out.println(
+                                "\nPages:");
+
+                for (page.Page p : pm.getPages()) {
+
+                        System.out.println(
+                                        "Page "
+                                                        + p.getPageId()
+                                                        + " -> "
+                                                        + p.getRows()
+                                                                        .size()
+                                                        + " rows");
+                }
         }
 }
