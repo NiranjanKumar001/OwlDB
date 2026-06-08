@@ -2,6 +2,7 @@ package app;
 
 import database.Database;
 import index.RIDIndex;
+import index.RIDTreeIndex;
 import page.PageManager;
 import page.RID;
 import query.QueryExecutor;
@@ -351,5 +352,33 @@ public class Main {
 
                 System.out.println(
                                 foundRow.getValues());
+                System.out.println(
+                                "\nRID Tree Index Test:");
+
+                RIDTreeIndex treeIndex = new RIDTreeIndex();
+
+                treeIndex.add(
+                                10,
+                                rid1);
+
+                treeIndex.add(
+                                20,
+                                rid2);
+
+                treeIndex.add(
+                                30,
+                                rid3);
+
+                System.out.println(
+                                "Age > 15");
+
+                for (RID rid : treeIndex.findGreaterThan(
+                                15)) {
+
+                        System.out.println(
+                                        pm.getRow(
+                                                        rid)
+                                                        .getValues());
+                }
         }
 }
