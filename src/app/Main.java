@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import btree.LeafNode;
+import btree.BTree;
 import btree.InternalNode;
 
 public class Main {
@@ -414,5 +415,25 @@ public class Main {
 
                 System.out.println(
                                 leaf.isLeaf());
+                System.out.println(
+                                "\nB-Tree Insert Test:");
+
+                BTree tree = new BTree();
+
+                tree.insert(
+                                30,
+                                rid3);
+
+                tree.insert(
+                                10,
+                                rid1);
+
+                tree.insert(
+                                20,
+                                rid2);
+
+                System.out.println(
+                                tree.getRoot()
+                                                .getKeys());
         }
 }
