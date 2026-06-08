@@ -1,6 +1,7 @@
 package app;
 
 import database.Database;
+import index.RIDIndex;
 import page.PageManager;
 import page.RID;
 import query.QueryExecutor;
@@ -313,5 +314,34 @@ public class Main {
                                                                         .size()
                                                         + " rows");
                 }
+
+                System.out.println(
+                                "\nRID Index Test:");
+
+                RIDIndex ridIndex = new RIDIndex();
+
+                ridIndex.add(
+                                "1",
+                                rid1);
+
+                ridIndex.add(
+                                "2",
+                                rid2);
+
+                ridIndex.add(
+                                "3",
+                                rid3);
+
+                System.out.println(
+                                ridIndex.find(
+                                                "1"));
+
+                System.out.println(
+                                ridIndex.find(
+                                                "2"));
+
+                System.out.println(
+                                ridIndex.find(
+                                                "3"));
         }
 }
