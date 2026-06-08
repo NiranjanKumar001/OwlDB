@@ -15,6 +15,9 @@ import storage.StorageEngine;
 import java.util.ArrayList;
 import java.util.List;
 
+import btree.LeafNode;
+import btree.InternalNode;
+
 public class Main {
 
         public static void main(String[] args) {
@@ -380,5 +383,36 @@ public class Main {
                                                         rid)
                                                         .getValues());
                 }
+
+                System.out.println(
+                                "\nB-Tree Node Test:");
+
+                LeafNode leaf = new LeafNode();
+
+                leaf.getKeys()
+                                .add(10);
+
+                leaf.getKeys()
+                                .add(20);
+
+                System.out.println(
+                                leaf.getKeys());
+
+                InternalNode root = new InternalNode();
+
+                root.getKeys()
+                                .add(15);
+
+                root.getChildren()
+                                .add(leaf);
+
+                System.out.println(
+                                root.getKeys());
+
+                System.out.println(
+                                root.isLeaf());
+
+                System.out.println(
+                                leaf.isLeaf());
         }
 }
