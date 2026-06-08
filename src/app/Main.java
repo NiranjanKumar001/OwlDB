@@ -343,5 +343,13 @@ public class Main {
                 System.out.println(
                                 ridIndex.find(
                                                 "3"));
+                System.out.println(
+                                "\nRID Lookup Test:");
+
+                Row foundRow = pm.getRow(
+                                rid2);
+
+                System.out.println(
+                                foundRow.getValues());
         }
 }

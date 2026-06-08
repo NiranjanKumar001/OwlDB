@@ -10,94 +10,113 @@ import java.util.List;
  */
 public class PageManager {
 
-    private List<Page> pages;
+        private List<Page> pages;
 
-    private int pageSize;
+        private int pageSize;
 
-    public PageManager(
-            int pageSize) {
+        public PageManager(
+                        int pageSize) {
 
-        this.pageSize =
-                pageSize;
+                this.pageSize = pageSize;
 
-        this.pages =
-                new ArrayList<>();
+                this.pages = new ArrayList<>();
+
+                /*
+                 * Create first page.
+                 */
+                pages.add(
+                                new Page(
+                                                0,
+                                                pageSize));
+        }
 
         /*
-         * Create first page.
+         * Insert row.
          */
-        pages.add(
-                new Page(
-                        0,
-                        pageSize));
-    }
+        public void insertRow(
+                        Row row) {
 
-    /*
-     * Insert row.
-     */
-    public void insertRow(
-            Row row) {
+                Page currentPage = pages.get(
+                                pages.size() - 1);
 
-        Page currentPage =
-                pages.get(
-                        pages.size() - 1);
+                if (currentPage.isFull()) {
 
-        if (currentPage.isFull()) {
+                        Page newPage = new Page(
+                                        pages.size(),
+                                        pageSize);
 
-            Page newPage =
-                    new Page(
-                            pages.size(),
-                            pageSize);
+                        pages.add(
+                                        newPage);
 
-            pages.add(
-                    newPage);
+                        currentPage = newPage;
+                }
 
-            currentPage =
-                    newPage;
+                currentPage.addRow(
+                                row);
         }
 
-        currentPage.addRow(
-                row);
-    }
+        /*
+         * Insert row and return RID.
+         */
+        public RID insertAndReturnRID(
+                        Row row) {
 
-    /*
-     * Insert row and return RID.
-     */
-    public RID insertAndReturnRID(
-            Row row) {
+                Page currentPage = pages.get(
+                                pages.size() - 1);
 
-        Page currentPage =
-                pages.get(
-                        pages.size() - 1);
+                if (currentPage.isFull()) {
 
-        if (currentPage.isFull()) {
+                        Page newPage = new Page(
+                                        pages.size(),
+                                        pageSize);
 
-            Page newPage =
-                    new Page(
-                            pages.size(),
-                            pageSize);
+                        pages.add(
+                                        newPage);
 
-            pages.add(
-                    newPage);
+                        currentPage = newPage;
+                }
 
-            currentPage =
-                    newPage;
+                int slotId = currentPage.getRows()
+                                .size();
+
+                currentPage.addRow(
+                                row);
+
+                return new RID(
+                                currentPage.getPageId(),
+                                slotId);
         }
 
-        int slotId =
-                currentPage.getRows()
-                        .size();
+        public List<Page> getPages() {
 
-        currentPage.addRow(
-                row);
+                return pages;
+        }
 
-        return new RID(
-                currentPage.getPageId(),
-                slotId);
-    }
+        /*
+         * Get row using RID.
+         */
+        public Row getRow(
+                        RID rid) {
 
-    public List<Page> getPages() {
+                int pageId = rid.getPageId();
 
-        return pages;
-    }
+                int slotId = rid.getSlotId();
+
+                if (pageId >= pages.size()) {
+
+                        return null;
+                }
+
+                Page page = pages.get(
+                                pageId);
+
+                if (slotId >= page.getRows()
+                                .size()) {
+
+                        return null;
+                }
+
+                return page.getRows()
+                                .get(slotId);
+        }
 }
