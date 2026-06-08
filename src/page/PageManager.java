@@ -23,6 +23,9 @@ public class PageManager {
         this.pages =
                 new ArrayList<>();
 
+        /*
+         * Create first page.
+         */
         pages.add(
                 new Page(
                         0,
@@ -30,7 +33,7 @@ public class PageManager {
     }
 
     /*
-     * Insert row into pages.
+     * Insert row.
      */
     public void insertRow(
             Row row) {
@@ -55,6 +58,42 @@ public class PageManager {
 
         currentPage.addRow(
                 row);
+    }
+
+    /*
+     * Insert row and return RID.
+     */
+    public RID insertAndReturnRID(
+            Row row) {
+
+        Page currentPage =
+                pages.get(
+                        pages.size() - 1);
+
+        if (currentPage.isFull()) {
+
+            Page newPage =
+                    new Page(
+                            pages.size(),
+                            pageSize);
+
+            pages.add(
+                    newPage);
+
+            currentPage =
+                    newPage;
+        }
+
+        int slotId =
+                currentPage.getRows()
+                        .size();
+
+        currentPage.addRow(
+                row);
+
+        return new RID(
+                currentPage.getPageId(),
+                slotId);
     }
 
     public List<Page> getPages() {

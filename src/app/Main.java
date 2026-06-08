@@ -2,6 +2,7 @@ package app;
 
 import database.Database;
 import page.PageManager;
+import page.RID;
 import query.QueryExecutor;
 import row.Row;
 import schema.Column;
@@ -263,25 +264,27 @@ public class Main {
                                 "SELECT DISTINCT age FROM users");
                 executor.execute(
                                 "SELECT * FROM users OFFSET 1 LIMIT 2");
+                System.out.println(
+                                "\nRID Test:");
 
                 PageManager pm = new PageManager(
                                 2);
 
-                pm.insertRow(
+                RID rid1 = pm.insertAndReturnRID(
                                 new Row(
                                                 List.of(
                                                                 "1",
                                                                 "A",
                                                                 "10")));
 
-                pm.insertRow(
+                RID rid2 = pm.insertAndReturnRID(
                                 new Row(
                                                 List.of(
                                                                 "2",
                                                                 "B",
                                                                 "20")));
 
-                pm.insertRow(
+                RID rid3 = pm.insertAndReturnRID(
                                 new Row(
                                                 List.of(
                                                                 "3",
@@ -289,15 +292,24 @@ public class Main {
                                                                 "30")));
 
                 System.out.println(
+                                rid1);
+
+                System.out.println(
+                                rid2);
+
+                System.out.println(
+                                rid3);
+
+                System.out.println(
                                 "\nPages:");
 
-                for (page.Page p : pm.getPages()) {
+                for (page.Page page : pm.getPages()) {
 
                         System.out.println(
                                         "Page "
-                                                        + p.getPageId()
+                                                        + page.getPageId()
                                                         + " -> "
-                                                        + p.getRows()
+                                                        + page.getRows()
                                                                         .size()
                                                         + " rows");
                 }
