@@ -416,13 +416,9 @@ public class Main {
                 System.out.println(
                                 leaf.isLeaf());
                 System.out.println(
-                                "\nB-Tree Insert Test:");
+                                "\nB-Tree Split Test:");
 
                 BTree tree = new BTree();
-
-                tree.insert(
-                                30,
-                                rid3);
 
                 tree.insert(
                                 10,
@@ -432,8 +428,12 @@ public class Main {
                                 20,
                                 rid2);
 
-                System.out.println(
-                                tree.getRoot()
-                                                .getKeys());
+                tree.insert(
+                                30,
+                                rid3);
+
+                tree.insert(
+                                40,
+                                rid1);
         }
 }
