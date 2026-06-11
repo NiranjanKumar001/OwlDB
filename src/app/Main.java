@@ -416,7 +416,7 @@ public class Main {
                 System.out.println(
                                 leaf.isLeaf());
                 System.out.println(
-                                "\nB-Tree Split Test:");
+                                "\nB-Tree Persistence Test:");
 
                 BTree tree = new BTree();
 
@@ -435,5 +435,7 @@ public class Main {
                 tree.insert(
                                 40,
                                 rid1);
+
+                tree.printTree();
         }
 }

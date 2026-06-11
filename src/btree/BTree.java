@@ -4,147 +4,209 @@ import page.RID;
 
 public class BTree {
 
-        private static final int MAX_KEYS = 3;
+    private static final int MAX_KEYS = 3;
 
-        private LeafNode root;
+    /*
+     * Root can now be:
+     * LeafNode or InternalNode
+     */
+    private BTreeNode root;
 
-        public BTree() {
+    public BTree() {
 
-                root = new LeafNode();
+        root =
+                new LeafNode();
+    }
+
+    /*
+     * Insert key + RID.
+     */
+    public void insert(
+            int key,
+            RID rid) {
+
+        /*
+         * For now we only support
+         * inserting into a leaf root.
+         */
+        if (!(root instanceof LeafNode)) {
+
+            System.out.println(
+                    "Internal root insertion not implemented yet.");
+
+            return;
+        }
+
+        LeafNode leaf =
+                (LeafNode) root;
+
+        int position = 0;
+
+        while (position < leaf.getKeys().size()
+                &&
+                leaf.getKeys()
+                        .get(position) < key) {
+
+            position++;
+        }
+
+        leaf.getKeys()
+                .add(
+                        position,
+                        key);
+
+        leaf.getRids()
+                .add(
+                        position,
+                        rid);
+
+        /*
+         * Split if full.
+         */
+        if (isFull(
+                leaf)) {
+
+            root =
+                    splitRoot(
+                            leaf);
+        }
+    }
+
+    /*
+     * Check if leaf is full.
+     */
+    private boolean isFull(
+            LeafNode node) {
+
+        return node.getKeys()
+                .size() > MAX_KEYS;
+    }
+
+    /*
+     * Split root leaf.
+     */
+    private InternalNode splitRoot(
+            LeafNode oldRoot) {
+
+        LeafNode left =
+                new LeafNode();
+
+        LeafNode right =
+                new LeafNode();
+
+        int middle =
+                oldRoot.getKeys()
+                        .size() / 2;
+
+        /*
+         * Left side
+         */
+        for (int i = 0;
+             i < middle;
+             i++) {
+
+            left.getKeys()
+                    .add(
+                            oldRoot.getKeys()
+                                    .get(i));
+
+            left.getRids()
+                    .add(
+                            oldRoot.getRids()
+                                    .get(i));
         }
 
         /*
-         * Insert key + RID.
+         * Right side
          */
-        public void insert(
-                        int key,
-                        RID rid) {
+        for (int i = middle;
+             i < oldRoot.getKeys()
+                     .size();
+             i++) {
 
-                int position = 0;
+            right.getKeys()
+                    .add(
+                            oldRoot.getKeys()
+                                    .get(i));
 
-                while (position < root.getKeys().size()
-                                &&
-                                root.getKeys().get(position) < key) {
-
-                        position++;
-                }
-
-                root.getKeys()
-                                .add(
-                                                position,
-                                                key);
-
-                root.getRids()
-                                .add(
-                                                position,
-                                                rid);
-                if (isFull(
-                                root)) {
-
-                        InternalNode newRoot = splitRoot();
-
-                        System.out.println(
-                                        "\nRoot Split!");
-
-                        System.out.println(
-                                        "Promoted Key: "
-                                                        + newRoot.getKeys());
-
-                        System.out.println(
-                                        "Left: "
-                                                        + ((LeafNode) newRoot.getChildren()
-                                                                        .get(0))
-                                                                        .getKeys());
-
-                        System.out.println(
-                                        "Right: "
-                                                        + ((LeafNode) newRoot.getChildren()
-                                                                        .get(1))
-                                                                        .getKeys());
-                }
+            right.getRids()
+                    .add(
+                            oldRoot.getRids()
+                                    .get(i));
         }
 
-        public LeafNode getRoot() {
-
-                return root;
-        }
+        InternalNode newRoot =
+                new InternalNode();
 
         /*
-         * Check if leaf is full.
+         * Promote first key
+         * from right node.
          */
-        private boolean isFull(
-                        LeafNode node) {
-
-                return node.getKeys()
-                                .size() > MAX_KEYS;
-        }
-
-        /*
-         * Split root leaf.
-         */
-        private InternalNode splitRoot() {
-
-                LeafNode oldRoot = root;
-
-                LeafNode left = new LeafNode();
-
-                LeafNode right = new LeafNode();
-
-                int middle = oldRoot.getKeys()
-                                .size() / 2;
-
-                /*
-                 * Left side
-                 */
-                for (int i = 0; i < middle; i++) {
-
-                        left.getKeys()
-                                        .add(
-                                                        oldRoot.getKeys()
-                                                                        .get(i));
-
-                        left.getRids()
-                                        .add(
-                                                        oldRoot.getRids()
-                                                                        .get(i));
-                }
-
-                /*
-                 * Right side
-                 */
-                for (int i = middle; i < oldRoot.getKeys()
-                                .size(); i++) {
-
+        newRoot.getKeys()
+                .add(
                         right.getKeys()
-                                        .add(
-                                                        oldRoot.getKeys()
-                                                                        .get(i));
+                                .get(0));
 
-                        right.getRids()
-                                        .add(
-                                                        oldRoot.getRids()
-                                                                        .get(i));
-                }
+        newRoot.getChildren()
+                .add(
+                        left);
 
-                InternalNode newRoot = new InternalNode();
+        newRoot.getChildren()
+                .add(
+                        right);
 
-                /*
-                 * Promote first key
-                 * from right node.
-                 */
-                newRoot.getKeys()
-                                .add(
-                                                right.getKeys()
-                                                                .get(0));
+        return newRoot;
+    }
 
-                newRoot.getChildren()
-                                .add(
-                                                left);
+    /*
+     * Get root.
+     */
+    public BTreeNode getRoot() {
 
-                newRoot.getChildren()
-                                .add(
-                                                right);
+        return root;
+    }
 
-                return newRoot;
+    /*
+     * Print tree.
+     */
+    public void printTree() {
+
+        if (root instanceof LeafNode) {
+
+            LeafNode leaf =
+                    (LeafNode) root;
+
+            System.out.println(
+                    leaf.getKeys());
+
+            return;
         }
+
+        InternalNode internal =
+                (InternalNode) root;
+
+        System.out.println(
+                "\nRoot:");
+
+        System.out.println(
+                internal.getKeys());
+
+        System.out.println(
+                "\nLeft Child:");
+
+        System.out.println(
+                ((LeafNode)
+                        internal.getChildren()
+                                .get(0))
+                        .getKeys());
+
+        System.out.println(
+                "\nRight Child:");
+
+        System.out.println(
+                ((LeafNode)
+                        internal.getChildren()
+                                .get(1))
+                        .getKeys());
+    }
 }
