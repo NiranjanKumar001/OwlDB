@@ -4,31 +4,51 @@ import java.util.ArrayList;
 import java.util.List;
 
 /*
- * Base B-Tree node.
+ * Base class for every B-Tree node.
  */
-public class BTreeNode {
+public abstract class BTreeNode {
 
+    /*
+     * Sorted keys.
+     */
     protected List<Integer> keys;
 
-    protected boolean leaf;
+    /*
+     * Parent node.
+     */
+    protected InternalNode parent;
 
-    public BTreeNode(
-            boolean leaf) {
+    public BTreeNode() {
 
-        this.leaf =
-                leaf;
-
-        this.keys =
+        keys =
                 new ArrayList<>();
     }
 
+    /*
+     * Get keys.
+     */
     public List<Integer> getKeys() {
 
         return keys;
     }
 
-    public boolean isLeaf() {
+    /*
+     * Parent.
+     */
+    public InternalNode getParent() {
 
-        return leaf;
+        return parent;
     }
+
+    public void setParent(
+            InternalNode parent) {
+
+        this.parent =
+                parent;
+    }
+
+    /*
+     * Leaf?
+     */
+    public abstract boolean isLeaf();
 }

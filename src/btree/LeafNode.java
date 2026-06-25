@@ -6,25 +6,64 @@ import java.util.ArrayList;
 import java.util.List;
 
 /*
- * Leaf node.
+ * Leaf node of the B+Tree.
  *
- * Stores keys + RIDs.
+ * Stores:
+ *  - Keys
+ *  - Record IDs (RIDs)
+ *  - Pointer to next leaf
  */
-public class LeafNode
-        extends BTreeNode {
+public class LeafNode extends BTreeNode {
 
+    /*
+     * Record IDs.
+     */
     private List<RID> rids;
+
+    /*
+     * Next leaf.
+     *
+     * Used for range scan.
+     */
+    private LeafNode next;
 
     public LeafNode() {
 
-        super(true);
+        super();
 
-        this.rids =
+        rids =
                 new ArrayList<>();
+
+        next =
+                null;
     }
 
+    /*
+     * Get RIDs.
+     */
     public List<RID> getRids() {
 
         return rids;
+    }
+
+    /*
+     * Next leaf.
+     */
+    public LeafNode getNext() {
+
+        return next;
+    }
+
+    public void setNext(
+            LeafNode next) {
+
+        this.next =
+                next;
+    }
+
+    @Override
+    public boolean isLeaf() {
+
+        return true;
     }
 }
