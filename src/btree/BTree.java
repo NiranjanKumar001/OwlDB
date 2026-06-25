@@ -18,6 +18,8 @@ public class BTree {
                 new LeafNode();
     }
 
+    
+
     /*
      * Insert key + RID.
      */
@@ -261,4 +263,69 @@ public class BTree {
                                 .get(1))
                         .getKeys());
     }
+    /*
+ * Search for a key.
+ */
+public RID search(
+        int key) {
+
+    if (root instanceof LeafNode) {
+
+        LeafNode leaf =
+                (LeafNode) root;
+
+        for (int i = 0;
+             i < leaf.getKeys().size();
+             i++) {
+
+            if (leaf.getKeys()
+                    .get(i) == key) {
+
+                return leaf.getRids()
+                        .get(i);
+            }
+        }
+
+        return null;
+    }
+
+    InternalNode internal =
+            (InternalNode) root;
+
+    int promotedKey =
+            internal.getKeys()
+                    .get(0);
+
+    LeafNode target;
+
+    if (key < promotedKey) {
+
+        target =
+                (LeafNode)
+                        internal.getChildren()
+                                .get(0);
+
+    } else {
+
+        target =
+                (LeafNode)
+                        internal.getChildren()
+                                .get(1);
+    }
+
+    for (int i = 0;
+         i < target.getKeys()
+                .size();
+         i++) {
+
+        if (target.getKeys()
+                .get(i) == key) {
+
+            return target.getRids()
+                    .get(i);
+        }
+    }
+
+    return null;
+}
 }

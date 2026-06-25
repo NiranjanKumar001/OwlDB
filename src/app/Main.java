@@ -449,5 +449,11 @@ public class Main {
                                 rid2);
 
                 tree.printTree();
+
+                RID rid = tree.search(30);
+
+                System.out.println(rid);
+
+                System.out.println(pm.getRow(rid).getValues());
         }
 }
