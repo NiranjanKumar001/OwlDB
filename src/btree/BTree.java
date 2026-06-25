@@ -26,19 +26,48 @@ public class BTree {
             RID rid) {
 
         /*
-         * For now we only support
-         * inserting into a leaf root.
+         * Root is still a leaf.
          */
-        if (!(root instanceof LeafNode)) {
+        if (root instanceof LeafNode) {
 
-            System.out.println(
-                    "Internal root insertion not implemented yet.");
+            LeafNode leaf =
+                    (LeafNode) root;
+
+            insertIntoLeaf(
+                    leaf,
+                    key,
+                    rid);
+
+            /*
+             * Split if full.
+             */
+            if (isFull(
+                    leaf)) {
+
+                root =
+                        splitRoot(
+                                leaf);
+            }
 
             return;
         }
 
-        LeafNode leaf =
-                (LeafNode) root;
+        /*
+         * Root became internal.
+         */
+        insertIntoInternal(
+                (InternalNode) root,
+                key,
+                rid);
+    }
+
+    /*
+     * Insert into a leaf.
+     */
+    private void insertIntoLeaf(
+            LeafNode leaf,
+            int key,
+            RID rid) {
 
         int position = 0;
 
@@ -59,17 +88,41 @@ public class BTree {
                 .add(
                         position,
                         rid);
+    }
 
-        /*
-         * Split if full.
-         */
-        if (isFull(
-                leaf)) {
+    /*
+     * Navigate from internal root.
+     */
+    private void insertIntoInternal(
+            InternalNode node,
+            int key,
+            RID rid) {
 
-            root =
-                    splitRoot(
-                            leaf);
+        int promotedKey =
+                node.getKeys()
+                        .get(0);
+
+        LeafNode target;
+
+        if (key < promotedKey) {
+
+            target =
+                    (LeafNode)
+                            node.getChildren()
+                                    .get(0);
+
+        } else {
+
+            target =
+                    (LeafNode)
+                            node.getChildren()
+                                    .get(1);
         }
+
+        insertIntoLeaf(
+                target,
+                key,
+                rid);
     }
 
     /*
@@ -99,7 +152,7 @@ public class BTree {
                         .size() / 2;
 
         /*
-         * Left side
+         * Left side.
          */
         for (int i = 0;
              i < middle;
@@ -117,11 +170,10 @@ public class BTree {
         }
 
         /*
-         * Right side
+         * Right side.
          */
         for (int i = middle;
-             i < oldRoot.getKeys()
-                     .size();
+             i < oldRoot.getKeys().size();
              i++) {
 
             right.getKeys()

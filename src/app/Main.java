@@ -416,10 +416,13 @@ public class Main {
                 System.out.println(
                                 leaf.isLeaf());
                 System.out.println(
-                                "\nB-Tree Persistence Test:");
+                                "\nB-Tree Navigation Test:");
 
                 BTree tree = new BTree();
 
+                /*
+                 * Initial inserts.
+                 */
                 tree.insert(
                                 10,
                                 rid1);
@@ -435,6 +438,15 @@ public class Main {
                 tree.insert(
                                 40,
                                 rid1);
+
+                /*
+                 * New insert.
+                 * Should navigate
+                 * to the right child.
+                 */
+                tree.insert(
+                                50,
+                                rid2);
 
                 tree.printTree();
         }
