@@ -295,21 +295,16 @@ public class BTree {
                 System.out.println(
                                 internal.getKeys());
 
-                System.out.println(
-                                "\nLeft Child:");
+                for (int i = 0; i < internal.getChildren().size(); i++) {
 
-                System.out.println(
-                                ((LeafNode) internal.getChildren()
-                                                .get(0))
-                                                .getKeys());
+                        System.out.println(
+                                        "\nChild " + i + ":");
 
-                System.out.println(
-                                "\nRight Child:");
-
-                System.out.println(
-                                ((LeafNode) internal.getChildren()
-                                                .get(1))
-                                                .getKeys());
+                        System.out.println(
+                                        ((LeafNode) internal.getChildren()
+                                                        .get(i))
+                                                        .getKeys());
+                }
         }
 
         /*
