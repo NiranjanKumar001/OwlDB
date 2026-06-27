@@ -47,6 +47,7 @@ public class BTree {
 
                                 root = splitRoot(
                                                 leaf);
+
                         }
 
                         return;
@@ -118,6 +119,17 @@ public class BTree {
                                 target,
                                 key,
                                 rid);
+
+                /*
+                 * Detect overflow.
+                 */
+                if (isFull(
+                                target)) {
+
+                        splitChildLeaf(
+                                        node,
+                                        target);
+                }
         }
 
         /*
@@ -195,6 +207,61 @@ public class BTree {
                                                 right);
 
                 return newRoot;
+        }
+
+        /*
+         * Split child leaf.
+         */
+        private void splitChildLeaf(
+                        InternalNode parent,
+                        LeafNode child) {
+
+                LeafNode right = new LeafNode();
+
+                int middle = child.getKeys()
+                                .size() / 2;
+
+                while (child.getKeys()
+                                .size() > middle) {
+
+                        right.getKeys()
+                                        .add(
+                                                        child.getKeys()
+                                                                        .remove(
+                                                                                        middle));
+
+                        right.getRids()
+                                        .add(
+                                                        child.getRids()
+                                                                        .remove(
+                                                                                        middle));
+                }
+
+                int promotedKey = right.getKeys()
+                                .get(0);
+
+                parent.getKeys()
+                                .add(
+                                                promotedKey);
+
+                parent.getKeys()
+                                .sort(
+                                                Integer::compareTo);
+
+                int childIndex = parent.getChildren()
+                                .indexOf(
+                                                child);
+
+                parent.addChild(
+                                childIndex + 1,
+                                right);
+
+                System.out.println(
+                                "\nChild Split!");
+
+                System.out.println(
+                                "Promoted: "
+                                                + promotedKey);
         }
 
         /*
