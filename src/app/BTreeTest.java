@@ -62,9 +62,6 @@ public class BTreeTest {
 
         tree.insert(10, rid1);
         tree.insert(20, rid2);
-        tree.insert(30, rid3);
-        tree.insert(40, rid4);
-        tree.insert(50, rid5);
 
         tree.printTree();
 
