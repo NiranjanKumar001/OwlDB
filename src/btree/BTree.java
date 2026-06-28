@@ -379,46 +379,17 @@ public class BTree {
                                 key);
         }
 
-        /*
-         * Search for keys in a range.
-         */
         public List<RID> searchRange(
                         int minKey,
                         int maxKey) {
 
                 List<RID> result = new ArrayList<>();
 
-                /*
-                 * Tree has only one leaf.
-                 */
-                if (root instanceof LeafNode) {
-
-                        LeafNode leaf = (LeafNode) root;
-
-                        collectRange(
-                                        leaf,
-                                        minKey,
-                                        maxKey,
-                                        result);
-
-                        return result;
-                }
-
-                /*
-                 * Tree has an internal root.
-                 */
-                InternalNode internal = (InternalNode) root;
-
-                for (BTreeNode child : internal.getChildren()) {
-
-                        LeafNode leaf = (LeafNode) child;
-
-                        collectRange(
-                                        leaf,
-                                        minKey,
-                                        maxKey,
-                                        result);
-                }
+                collectRangeRecursive(
+                                root,
+                                minKey,
+                                maxKey,
+                                result);
 
                 return result;
         }
@@ -494,6 +465,35 @@ public class BTree {
                                 right);
 
                 return newRoot;
+        }
+
+        private void collectRangeRecursive(
+                        BTreeNode node,
+                        int minKey,
+                        int maxKey,
+                        List<RID> result) {
+
+                if (node instanceof LeafNode) {
+
+                        collectRange(
+                                        (LeafNode) node,
+                                        minKey,
+                                        maxKey,
+                                        result);
+
+                        return;
+                }
+
+                InternalNode internal = (InternalNode) node;
+
+                for (BTreeNode child : internal.getChildren()) {
+
+                        collectRangeRecursive(
+                                        child,
+                                        minKey,
+                                        maxKey,
+                                        result);
+                }
         }
 
         /*
