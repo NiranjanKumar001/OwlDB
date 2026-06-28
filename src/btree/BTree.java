@@ -390,11 +390,29 @@ public class BTree {
 
                 List<RID> result = new ArrayList<>();
 
-                collectRangeRecursive(
-                                root,
-                                minKey,
-                                maxKey,
-                                result);
+                LeafNode current = findLeaf(minKey);
+
+                while (current != null) {
+
+                        for (int i = 0; i < current.getKeys().size(); i++) {
+
+                                int key = current.getKeys().get(i);
+
+                                if (key > maxKey) {
+
+                                        return result;
+                                }
+
+                                if (key >= minKey) {
+
+                                        result.add(
+                                                        current.getRids()
+                                                                        .get(i));
+                                }
+                        }
+
+                        current = current.getNext();
+                }
 
                 return result;
         }
@@ -472,70 +490,41 @@ public class BTree {
                 return newRoot;
         }
 
-        private void collectRangeRecursive(
-                        BTreeNode node,
-                        int minKey,
-                        int maxKey,
-                        List<RID> result) {
-
-                if (node instanceof LeafNode) {
-
-                        collectRange(
-                                        (LeafNode) node,
-                                        minKey,
-                                        maxKey,
-                                        result);
-
-                        return;
-                }
-
-                InternalNode internal = (InternalNode) node;
-
-                for (BTreeNode child : internal.getChildren()) {
-
-                        collectRangeRecursive(
-                                        child,
-                                        minKey,
-                                        maxKey,
-                                        result);
-                }
-        }
-
-        /*
-         * Collect matching RIDs from one leaf.
-         */
-        private void collectRange(
-                        LeafNode leaf,
-                        int minKey,
-                        int maxKey,
-                        List<RID> result) {
-
-                for (int i = 0; i < leaf.getKeys().size(); i++) {
-
-                        int key = leaf.getKeys()
-                                        .get(i);
-
-                        if (key >= minKey &&
-                                        key <= maxKey) {
-
-                                result.add(
-                                                leaf.getRids()
-                                                                .get(i));
-                        }
-                }
-        }
         public LeafNode getLeftMostLeaf() {
 
-    BTreeNode current = root;
+                BTreeNode current = root;
 
-    while (current instanceof InternalNode) {
+                while (current instanceof InternalNode) {
 
-        current =
-                ((InternalNode) current)
-                        .getChildren()
-                        .get(0);
-    }
+                        current = ((InternalNode) current)
+                                        .getChildren()
+                                        .get(0);
+                }
 
-    return (LeafNode) current;
-}
+                return (LeafNode) current;
+        }
+
+        private LeafNode findLeaf(
+                        int key) {
+
+                BTreeNode current = root;
+
+                while (current instanceof InternalNode) {
+
+                        InternalNode internal = (InternalNode) current;
+
+                        int childIndex = 0;
+
+                        while (childIndex < internal.getKeys().size()
+                                        && key >= internal.getKeys().get(childIndex)) {
+
+                                childIndex++;
+                        }
+
+                        current = internal.getChildren()
+                                        .get(childIndex);
+                }
+
+                return (LeafNode) current;
+        }
 }
