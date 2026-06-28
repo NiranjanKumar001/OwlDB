@@ -328,15 +328,24 @@ public class BTree {
                 }
         }
 
-        /*
-         * Search for a key.
-         */
         public RID search(
                         int key) {
 
-                if (root instanceof LeafNode) {
+                return searchNode(
+                                root,
+                                key);
+        }
 
-                        LeafNode leaf = (LeafNode) root;
+        private RID searchNode(
+                        BTreeNode node,
+                        int key) {
+
+                /*
+                 * Leaf reached.
+                 */
+                if (node instanceof LeafNode) {
+
+                        LeafNode leaf = (LeafNode) node;
 
                         for (int i = 0; i < leaf.getKeys().size(); i++) {
 
@@ -351,7 +360,10 @@ public class BTree {
                         return null;
                 }
 
-                InternalNode internal = (InternalNode) root;
+                /*
+                 * Internal node.
+                 */
+                InternalNode internal = (InternalNode) node;
 
                 int childIndex = 0;
 
@@ -361,20 +373,10 @@ public class BTree {
                         childIndex++;
                 }
 
-                LeafNode target = (LeafNode) internal.getChildren()
-                                .get(childIndex);
-                for (int i = 0; i < target.getKeys()
-                                .size(); i++) {
-
-                        if (target.getKeys()
-                                        .get(i) == key) {
-
-                                return target.getRids()
-                                                .get(i);
-                        }
-                }
-
-                return null;
+                return searchNode(
+                                internal.getChildren()
+                                                .get(childIndex),
+                                key);
         }
 
         /*
