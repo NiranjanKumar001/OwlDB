@@ -111,5 +111,17 @@ public class BTreeTest {
 
                         leaf = leaf.getNext();
                 }
+                System.out.println(
+                                "\nPage Statistics:");
+
+                System.out.println(
+                                "Pages: "
+                                                + pm.getPageCount());
+
+                System.out.println(
+                                "Rows: "
+                                                + pm.getTotalRowCount());
+
+                pm.printPages();
         }
 }

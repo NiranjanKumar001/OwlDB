@@ -25,14 +25,11 @@ public class Page {
             int pageId,
             int maxRows) {
 
-        this.pageId =
-                pageId;
+        this.pageId = pageId;
 
-        this.maxRows =
-                maxRows;
+        this.maxRows = maxRows;
 
-        this.rows =
-                new ArrayList<>();
+        this.rows = new ArrayList<>();
     }
 
     public int getPageId() {
@@ -50,8 +47,7 @@ public class Page {
      */
     public boolean isFull() {
 
-        return rows.size()
-                >= maxRows;
+        return rows.size() >= maxRows;
     }
 
     /*
@@ -62,5 +58,15 @@ public class Page {
 
         rows.add(
                 row);
+    }
+
+    public int getRowCount() {
+
+        return rows.size();
+    }
+
+    public int getMaxRows() {
+
+        return maxRows;
     }
 }

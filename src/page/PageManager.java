@@ -119,4 +119,44 @@ public class PageManager {
                 return page.getRows()
                                 .get(slotId);
         }
+
+        public void printPages() {
+
+                System.out.println("\nPage Layout:");
+
+                for (Page page : pages) {
+
+                        System.out.println(
+                                        "Page "
+                                                        + page.getPageId()
+                                                        + " ("
+                                                        + page.getRowCount()
+                                                        + "/"
+                                                        + page.getMaxRows()
+                                                        + ")");
+
+                        for (Row row : page.getRows()) {
+
+                                System.out.println(
+                                                "  " + row.getValues());
+                        }
+                }
+        }
+
+        public int getPageCount() {
+
+                return pages.size();
+        }
+
+        public int getTotalRowCount() {
+
+                int total = 0;
+
+                for (Page page : pages) {
+
+                        total += page.getRowCount();
+                }
+
+                return total;
+        }
 }
