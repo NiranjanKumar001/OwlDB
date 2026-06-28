@@ -137,6 +137,13 @@ public class BTree {
                                 .size() > MAX_KEYS;
         }
 
+        private boolean isInternalFull(
+                        InternalNode node) {
+
+                return node.getKeys()
+                                .size() > MAX_KEYS;
+        }
+
         /*
          * Split root leaf.
          */
@@ -242,6 +249,15 @@ public class BTree {
                 parent.getKeys()
                                 .sort(
                                                 Integer::compareTo);
+
+                if (isInternalFull(parent)) {
+
+                        System.out.println(
+                                        "\nROOT OVERFLOW DETECTED!");
+
+                        System.out.println(
+                                        parent.getKeys());
+                }
 
                 int childIndex = parent.getChildren()
                                 .indexOf(
