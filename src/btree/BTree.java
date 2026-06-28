@@ -99,21 +99,16 @@ public class BTree {
                         int key,
                         RID rid) {
 
-                int promotedKey = node.getKeys()
-                                .get(0);
+                int childIndex = 0;
 
-                LeafNode target;
+                while (childIndex < node.getKeys().size()
+                                && key >= node.getKeys().get(childIndex)) {
 
-                if (key < promotedKey) {
-
-                        target = (LeafNode) node.getChildren()
-                                        .get(0);
-
-                } else {
-
-                        target = (LeafNode) node.getChildren()
-                                        .get(1);
+                        childIndex++;
                 }
+
+                LeafNode target = (LeafNode) node.getChildren()
+                                .get(childIndex);
 
                 insertIntoLeaf(
                                 target,
@@ -332,22 +327,16 @@ public class BTree {
 
                 InternalNode internal = (InternalNode) root;
 
-                int promotedKey = internal.getKeys()
-                                .get(0);
+                int childIndex = 0;
 
-                LeafNode target;
+                while (childIndex < internal.getKeys().size()
+                                && key >= internal.getKeys().get(childIndex)) {
 
-                if (key < promotedKey) {
-
-                        target = (LeafNode) internal.getChildren()
-                                        .get(0);
-
-                } else {
-
-                        target = (LeafNode) internal.getChildren()
-                                        .get(1);
+                        childIndex++;
                 }
 
+                LeafNode target = (LeafNode) internal.getChildren()
+                                .get(childIndex);
                 for (int i = 0; i < target.getKeys()
                                 .size(); i++) {
 
