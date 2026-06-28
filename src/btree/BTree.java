@@ -252,11 +252,10 @@ public class BTree {
 
                 if (isInternalFull(parent)) {
 
-                        System.out.println(
-                                        "\nROOT OVERFLOW DETECTED!");
+                        root = splitInternalRoot(parent);
 
                         System.out.println(
-                                        parent.getKeys());
+                                        "\nROOT SPLIT!");
                 }
 
                 int childIndex = parent.getChildren()
@@ -409,6 +408,79 @@ public class BTree {
                 }
 
                 return result;
+        }
+
+        /*
+         * Split overflowing internal root.
+         */
+        private InternalNode splitInternalRoot(
+                        InternalNode oldRoot) {
+
+                InternalNode left = new InternalNode();
+
+                InternalNode right = new InternalNode();
+
+                int middle = oldRoot.getKeys()
+                                .size() / 2;
+
+                int promotedKey = oldRoot.getKeys()
+                                .get(middle);
+
+                /*
+                 * Left keys.
+                 */
+                for (int i = 0; i < middle; i++) {
+
+                        left.getKeys()
+                                        .add(
+                                                        oldRoot.getKeys()
+                                                                        .get(i));
+                }
+
+                /*
+                 * Right keys.
+                 */
+                for (int i = middle + 1; i < oldRoot.getKeys().size(); i++) {
+
+                        right.getKeys()
+                                        .add(
+                                                        oldRoot.getKeys()
+                                                                        .get(i));
+                }
+
+                /*
+                 * Left children.
+                 */
+                for (int i = 0; i <= middle; i++) {
+
+                        left.addChild(
+                                        oldRoot.getChildren()
+                                                        .get(i));
+                }
+
+                /*
+                 * Right children.
+                 */
+                for (int i = middle + 1; i < oldRoot.getChildren().size(); i++) {
+
+                        right.addChild(
+                                        oldRoot.getChildren()
+                                                        .get(i));
+                }
+
+                InternalNode newRoot = new InternalNode();
+
+                newRoot.getKeys()
+                                .add(
+                                                promotedKey);
+
+                newRoot.addChild(
+                                left);
+
+                newRoot.addChild(
+                                right);
+
+                return newRoot;
         }
 
         /*
