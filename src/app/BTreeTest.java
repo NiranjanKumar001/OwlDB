@@ -61,9 +61,9 @@ public class BTreeTest {
                 tree.insert(60, rid5);
                 tree.insert(70, rid5);
                 tree.insert(80, rid5);
-tree.insert(90, rid5);
-tree.insert(100, rid5);
-tree.insert(110, rid5);
+                tree.insert(90, rid5);
+                tree.insert(100, rid5);
+                tree.insert(110, rid5);
 
                 tree.printTree();
 
@@ -99,5 +99,17 @@ tree.insert(110, rid5);
                 System.out.println(tree.search(30));
                 System.out.println(tree.search(50));
                 System.out.println(tree.search(70));
+                System.out.println(
+                                "\nOWLET-052 Leaf Chain Test:");
+
+                var leaf = tree.getLeftMostLeaf();
+
+                while (leaf != null) {
+
+                        System.out.println(
+                                        leaf.getKeys());
+
+                        leaf = leaf.getNext();
+                }
         }
 }

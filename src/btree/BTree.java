@@ -199,6 +199,7 @@ public class BTree {
                                                         oldRoot.getRids()
                                                                         .get(i));
                 }
+                left.setNext(right);
 
                 InternalNode newRoot = new InternalNode();
 
@@ -249,6 +250,10 @@ public class BTree {
                                                                         .remove(
                                                                                         middle));
                 }
+
+                /* Maintain leaf links */
+                right.setNext(child.getNext());
+                child.setNext(right);
 
                 int promotedKey = right.getKeys()
                                 .get(0);
@@ -519,4 +524,18 @@ public class BTree {
                         }
                 }
         }
+        public LeafNode getLeftMostLeaf() {
+
+    BTreeNode current = root;
+
+    while (current instanceof InternalNode) {
+
+        current =
+                ((InternalNode) current)
+                        .getChildren()
+                        .get(0);
+    }
+
+    return (LeafNode) current;
+}
 }
