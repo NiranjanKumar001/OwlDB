@@ -91,9 +91,6 @@ public class BTree {
                                                 rid);
         }
 
-        /*
-         * Navigate from internal root.
-         */
         private void insertIntoInternal(
                         InternalNode node,
                         int key,
@@ -107,24 +104,38 @@ public class BTree {
                         childIndex++;
                 }
 
-                LeafNode target = (LeafNode) node.getChildren()
+                BTreeNode child = node.getChildren()
                                 .get(childIndex);
 
-                insertIntoLeaf(
-                                target,
-                                key,
-                                rid);
+                /*
+                 * Reached leaf.
+                 */
+                if (child instanceof LeafNode) {
+
+                        LeafNode target = (LeafNode) child;
+
+                        insertIntoLeaf(
+                                        target,
+                                        key,
+                                        rid);
+
+                        if (isFull(target)) {
+
+                                splitChildLeaf(
+                                                node,
+                                                target);
+                        }
+
+                        return;
+                }
 
                 /*
-                 * Detect overflow.
+                 * Keep traversing.
                  */
-                if (isFull(
-                                target)) {
-
-                        splitChildLeaf(
-                                        node,
-                                        target);
-                }
+                insertIntoInternal(
+                                (InternalNode) child,
+                                key,
+                                rid);
         }
 
         /*
@@ -250,14 +261,6 @@ public class BTree {
                                 .sort(
                                                 Integer::compareTo);
 
-                if (isInternalFull(parent)) {
-
-                        root = splitInternalRoot(parent);
-
-                        System.out.println(
-                                        "\nROOT SPLIT!");
-                }
-
                 int childIndex = parent.getChildren()
                                 .indexOf(
                                                 child);
@@ -266,6 +269,13 @@ public class BTree {
                                 childIndex + 1,
                                 right);
 
+                if (isInternalFull(parent)) {
+
+                        root = splitInternalRoot(parent);
+
+                        System.out.println(
+                                        "\nROOT SPLIT!");
+                }
                 System.out.println(
                                 "\nChild Split!");
 
@@ -282,38 +292,39 @@ public class BTree {
                 return root;
         }
 
-        /*
-         * Print tree.
-         */
         public void printTree() {
 
-                if (root instanceof LeafNode) {
+                printNode(root, 0);
+        }
 
-                        LeafNode leaf = (LeafNode) root;
+        private void printNode(
+                        BTreeNode node,
+                        int level) {
+
+                String indent = "  ".repeat(level);
+
+                if (node instanceof LeafNode) {
+
+                        LeafNode leaf = (LeafNode) node;
 
                         System.out.println(
-                                        leaf.getKeys());
+                                        indent + "Leaf: "
+                                                        + leaf.getKeys());
 
                         return;
                 }
 
-                InternalNode internal = (InternalNode) root;
+                InternalNode internal = (InternalNode) node;
 
                 System.out.println(
-                                "\nRoot:");
+                                indent + "Internal: "
+                                                + internal.getKeys());
 
-                System.out.println(
-                                internal.getKeys());
+                for (BTreeNode child : internal.getChildren()) {
 
-                for (int i = 0; i < internal.getChildren().size(); i++) {
-
-                        System.out.println(
-                                        "\nChild " + i + ":");
-
-                        System.out.println(
-                                        ((LeafNode) internal.getChildren()
-                                                        .get(i))
-                                                        .getKeys());
+                        printNode(
+                                        child,
+                                        level + 1);
                 }
         }
 
