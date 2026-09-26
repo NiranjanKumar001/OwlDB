@@ -12,6 +12,8 @@ public class PageSerializer {
         StringBuilder sb = new StringBuilder();
 
         sb.append(page.getPageId())
+                .append("|")
+                .append(page.getMaxRows())
                 .append("\n");
 
         for (Row row : page.getRows()) {
@@ -28,13 +30,23 @@ public class PageSerializer {
 
     public static Page deserialize(String data) {
 
+        if (data == null || data.isBlank()) {
+            return null;
+        }
+
         String[] lines = data.split("\n");
 
-        int pageId =
-                Integer.parseInt(lines[0]);
+        String[] header = lines[0].split("\\|");
 
-        Page page =
-                new Page(pageId, 100);
+        int pageId = Integer.parseInt(header[0]);
+
+        int maxRows = 100;
+
+        if (header.length > 1) {
+            maxRows = Integer.parseInt(header[1]);
+        }
+
+        Page page = new Page(pageId, maxRows);
 
         for (int i = 1; i < lines.length; i++) {
 
