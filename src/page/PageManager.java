@@ -14,6 +14,8 @@ public class PageManager {
 
         private int pageSize;
 
+        private int nextPageId;
+
         public PageManager(
                         int pageSize) {
 
@@ -28,6 +30,7 @@ public class PageManager {
                                 new Page(
                                                 0,
                                                 pageSize));
+                nextPageId = 1;
         }
 
         /*
@@ -42,7 +45,7 @@ public class PageManager {
                 if (currentPage.isFull()) {
 
                         Page newPage = new Page(
-                                        pages.size(),
+                                        allocatePageId(),
                                         pageSize);
 
                         pages.add(
@@ -67,7 +70,7 @@ public class PageManager {
                 if (currentPage.isFull()) {
 
                         Page newPage = new Page(
-                                        pages.size(),
+                                        allocatePageId(),
                                         pageSize);
 
                         pages.add(
@@ -87,9 +90,28 @@ public class PageManager {
                                 slotId);
         }
 
+        public int allocatePageId() {
+
+                return nextPageId++;
+        }
+
         public List<Page> getPages() {
 
                 return pages;
+        }
+
+        public Page getPage(
+                        int pageId) {
+
+                for (Page page : pages) {
+
+                        if (page.getPageId() == pageId) {
+
+                                return page;
+                        }
+                }
+
+                return null;
         }
 
         /*
@@ -102,13 +124,13 @@ public class PageManager {
 
                 int slotId = rid.getSlotId();
 
-                if (pageId >= pages.size()) {
+                Page page = getPage(
+                                pageId);
+
+                if (page == null) {
 
                         return null;
                 }
-
-                Page page = pages.get(
-                                pageId);
 
                 if (slotId >= page.getRows()
                                 .size()) {
