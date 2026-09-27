@@ -3,23 +3,30 @@ package storage;
 import page.Page;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
 /*
- * In-memory buffer pool with Least Recently Used (LRU) eviction and dirty page tracking.
+ * In-memory buffer pool with Least Recently Used (LRU) eviction,
+ * dirty page tracking, and page pinning support.
  *
  * For a database targeting 10M+ records, disk pages cannot all fit in RAM.
  * The buffer pool keeps frequently accessed pages in memory with a fixed capacity.
  *
+ * Page Pinning:
+ * Pages currently in use by active operations are pinned (pin count > 0).
+ * Pinned pages MUST NOT be evicted.
+ * Eviction selects the least recently used UNPINNED page.
+ * If all cached pages are pinned, eviction fails safely.
+ *
  * Dirty Page Tracking & Safe Write-Back:
  * When a cached page is modified, it is marked dirty.
- * Clean pages can be safely discarded during LRU eviction.
- * Dirty pages MUST be written back to disk before being evicted.
- * If disk write fails during eviction, the dirty page is NOT evicted,
- * ensuring no modified data is lost.
+ * Clean unpinned pages can be safely discarded during LRU eviction.
+ * Dirty unpinned pages MUST be written back to disk before being evicted.
+ * If disk write fails during eviction, the dirty page is NOT evicted.
  *
  * Uses LinkedHashMap with access-order for average O(1) page access and eviction.
  */
@@ -32,6 +39,8 @@ public class BufferPool {
     private Map<Integer, Page> pages;
 
     private Set<Integer> dirtyPages;
+
+    private Map<Integer, Integer> pinCounts;
 
     public BufferPool(
             int capacity) {
@@ -56,6 +65,8 @@ public class BufferPool {
         this.pages = new LinkedHashMap<>(capacity, 0.75f, true);
 
         this.dirtyPages = new HashSet<>();
+
+        this.pinCounts = new HashMap<>();
     }
 
     /*
@@ -70,7 +81,7 @@ public class BufferPool {
 
     /*
      * Retrieve a page from cache, or load from PageStorage on cache miss.
-     * If loaded from disk, the page is inserted into the pool (evicting LRU if full).
+     * If loaded from disk, the page is inserted into the pool (evicting LRU unpinned if full).
      * If the page does not exist on disk, returns null without modifying the cache.
      */
     public Page getPage(
@@ -142,27 +153,118 @@ public class BufferPool {
 
         if (pages.size() >= capacity) {
 
-            Map.Entry<Integer, Page> eldestEntry = pages.entrySet().iterator().next();
-            int eldestPageId = eldestEntry.getKey();
-            Page eldestPage = eldestEntry.getValue();
+            Map.Entry<Integer, Page> victimEntry = null;
 
-            if (dirtyPages.contains(eldestPageId)) {
+            for (Map.Entry<Integer, Page> entry : pages.entrySet()) {
+
+                int candidateId = entry.getKey();
+
+                if (!isPinned(candidateId)) {
+
+                    victimEntry = entry;
+                    break;
+                }
+            }
+
+            if (victimEntry == null) {
+
+                throw new IllegalStateException(
+                        "Cannot evict: buffer pool is full and all pages are pinned.");
+            }
+
+            int victimPageId = victimEntry.getKey();
+            Page victimPage = victimEntry.getValue();
+
+            if (dirtyPages.contains(victimPageId)) {
 
                 if (storage == null) {
 
                     throw new IllegalStateException(
-                            "Cannot evict dirty page " + eldestPageId + ": no PageStorage configured.");
+                            "Cannot evict dirty page " + victimPageId + ": no PageStorage configured.");
                 }
 
-                storage.savePage(eldestPage);
-                dirtyPages.remove(eldestPageId);
+                storage.savePage(victimPage);
+                dirtyPages.remove(victimPageId);
             }
 
-            pages.remove(eldestPageId);
+            pages.remove(victimPageId);
+            pinCounts.remove(victimPageId);
         }
 
         pages.put(pageId, page);
         dirtyPages.remove(pageId);
+    }
+
+    /*
+     * Pin a page to indicate it is currently in use and must not be evicted.
+     * Increments the page's pin count. If page is not in cache, does nothing.
+     */
+    public void pinPage(
+            int pageId) {
+
+        if (!pages.containsKey(pageId)) {
+
+            return;
+        }
+
+        int current = pinCounts.getOrDefault(pageId, 0);
+        pinCounts.put(pageId, current + 1);
+    }
+
+    /*
+     * Unpin a page, decrementing its pin count.
+     * When pin count reaches zero, the page becomes eligible for future eviction.
+     */
+    public void unpinPage(
+            int pageId) {
+
+        if (!pages.containsKey(pageId)) {
+
+            return;
+        }
+
+        int current = pinCounts.getOrDefault(pageId, 0);
+
+        if (current <= 0) {
+
+            throw new IllegalStateException(
+                    "Cannot unpin page " + pageId + ": pin count is already zero.");
+        }
+
+        int next = current - 1;
+
+        if (next == 0) {
+
+            pinCounts.remove(pageId);
+
+        } else {
+
+            pinCounts.put(pageId, next);
+        }
+    }
+
+    /*
+     * Get the current pin count of a cached page.
+     * Returns 0 if unpinned or not in the buffer pool.
+     */
+    public int getPinCount(
+            int pageId) {
+
+        if (!pages.containsKey(pageId)) {
+
+            return 0;
+        }
+
+        return pinCounts.getOrDefault(pageId, 0);
+    }
+
+    /*
+     * Check if a page is currently pinned (pin count > 0).
+     */
+    public boolean isPinned(
+            int pageId) {
+
+        return getPinCount(pageId) > 0;
     }
 
     /*
@@ -314,5 +416,6 @@ public class BufferPool {
 
         pages.clear();
         dirtyPages.clear();
+        pinCounts.clear();
     }
 }

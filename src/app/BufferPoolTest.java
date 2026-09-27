@@ -961,6 +961,373 @@ public class BufferPoolTest {
                         "Dirty Test 9 failed: Clean eviction should succeed once flushed.");
             }
 
+            /*
+             * ==================================================
+             * OWLET-069 Page Pinning and Unpinning Tests
+             * ==================================================
+             */
+
+            /*
+             * Pin Test 1: Basic pinning.
+             * Capacity 2. Insert page 1.
+             * Verify getPinCount(1) == 0.
+             * Call pinPage(1).
+             * Verify getPinCount(1) == 1 and isPinned(1) == true.
+             */
+            BufferPool pinPool1 = new BufferPool(2);
+            pinPool1.putPage(new Page(1, 5));
+
+            if (pinPool1.getPinCount(1) != 0 || pinPool1.isPinned(1)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 1 failed: Initial pin count must be 0.");
+            }
+
+            pinPool1.pinPage(1);
+
+            if (pinPool1.getPinCount(1) != 1 || !pinPool1.isPinned(1)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 1 failed: Pin count must be 1 after pinPage(1).");
+            }
+
+            /*
+             * Pin Test 2: Multiple pins and unpins.
+             * pinPage(1) again -> pin count 2.
+             * unpinPage(1) -> pin count 1.
+             * unpinPage(1) -> pin count 0, isPinned false.
+             */
+            pinPool1.pinPage(1);
+
+            if (pinPool1.getPinCount(1) != 2 || !pinPool1.isPinned(1)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 2 failed: Pin count must be 2 after second pinPage.");
+            }
+
+            pinPool1.unpinPage(1);
+
+            if (pinPool1.getPinCount(1) != 1 || !pinPool1.isPinned(1)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 2 failed: Pin count must be 1 after first unpinPage.");
+            }
+
+            pinPool1.unpinPage(1);
+
+            if (pinPool1.getPinCount(1) != 0 || pinPool1.isPinned(1)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 2 failed: Pin count must be 0 after second unpinPage.");
+            }
+
+            /*
+             * Pin Test 3: Pinned page cannot be evicted.
+             * capacity = 2. Insert 1, 2.
+             * Pin page 1. Page 1 is LRU victim (inserted first).
+             * Insert page 3.
+             * Page 1 remains, page 2 is evicted, page 3 exists.
+             */
+            BufferPool pinPool3 = new BufferPool(2);
+            pinPool3.putPage(new Page(1, 5));
+            pinPool3.putPage(new Page(2, 5));
+
+            pinPool3.pinPage(1);
+
+            pinPool3.putPage(new Page(3, 5));
+
+            if (!pinPool3.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 3 failed: Pinned page 1 must NOT be evicted.");
+            }
+
+            if (pinPool3.containsPage(2)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 3 failed: Unpinned page 2 should have been evicted.");
+            }
+
+            if (!pinPool3.containsPage(3)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 3 failed: Page 3 must be in buffer pool.");
+            }
+
+            if (pinPool3.size() != 2) {
+
+                throw new IllegalStateException(
+                        "Pin Test 3 failed: Pool size must remain 2, got: " + pinPool3.size());
+            }
+
+            /*
+             * Pin Test 4: Unpinned page can be evicted.
+             * capacity = 2. Insert 1, 2. Pin 1.
+             * Insert 3 -> page 2 is evicted.
+             * Then unpin 1.
+             * Verify page 1 and page 3 remain.
+             * Insert 4 -> page 1 (now unpinned and LRU) is evicted!
+             */
+            BufferPool pinPool4 = new BufferPool(2);
+            pinPool4.putPage(new Page(1, 5));
+            pinPool4.putPage(new Page(2, 5));
+
+            pinPool4.pinPage(1);
+            pinPool4.putPage(new Page(3, 5));
+
+            pinPool4.unpinPage(1);
+
+            if (!pinPool4.containsPage(1) || !pinPool4.containsPage(3)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 4 failed: Pages 1 and 3 should remain after unpinning.");
+            }
+
+            pinPool4.putPage(new Page(4, 5));
+
+            if (pinPool4.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 4 failed: Unpinned page 1 should be evicted as LRU victim.");
+            }
+
+            if (!pinPool4.containsPage(3) || !pinPool4.containsPage(4)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 4 failed: Pages 3 and 4 should be in pool.");
+            }
+
+            /*
+             * Pin Test 5: All pages pinned.
+             * capacity = 2. Insert 1, 2. Pin 1, 2.
+             * Try inserting page 3 -> IllegalStateException.
+             * Verify size == 2, page 1 exists, page 2 exists, page 3 does not exist.
+             */
+            BufferPool pinPool5 = new BufferPool(2);
+            pinPool5.putPage(new Page(1, 5));
+            pinPool5.putPage(new Page(2, 5));
+
+            pinPool5.pinPage(1);
+            pinPool5.pinPage(2);
+
+            boolean caughtAllPinned = false;
+
+            try {
+
+                pinPool5.putPage(new Page(3, 5));
+
+            } catch (IllegalStateException expected) {
+
+                caughtAllPinned = true;
+            }
+
+            if (!caughtAllPinned) {
+
+                throw new IllegalStateException(
+                        "Pin Test 5 failed: Expected IllegalStateException when all pages are pinned.");
+            }
+
+            if (pinPool5.size() != 2) {
+
+                throw new IllegalStateException(
+                        "Pin Test 5 failed: Pool size should remain 2, got: " + pinPool5.size());
+            }
+
+            if (!pinPool5.containsPage(1) || !pinPool5.containsPage(2)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 5 failed: Pinned pages 1 and 2 must remain in pool.");
+            }
+
+            if (pinPool5.containsPage(3)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 5 failed: Page 3 must NOT be inserted when all pages are pinned.");
+            }
+
+            /*
+             * Pin Test 6: Dirty + pinned.
+             * capacity = 2. Load page 1, page 2.
+             * Modify page 1, mark dirty. Pin page 1.
+             * Load page 3.
+             * Verify page 1 remains in cache and is dirty.
+             * Page 2 is evicted. Page 3 exists.
+             */
+            BufferPool pinPool6 = new BufferPool(2, countingStorage);
+            Page pp1 = pinPool6.getPage(1, countingStorage);
+            Page pp2 = pinPool6.getPage(2, countingStorage);
+
+            pp1.addRow(new Row(List.of("104", "AlicePinnedRow", "888")));
+            pinPool6.markDirty(1);
+            pinPool6.pinPage(1);
+
+            pinPool6.getPage(3, countingStorage);
+
+            if (!pinPool6.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 6 failed: Dirty pinned page 1 must NOT be evicted.");
+            }
+
+            if (!pinPool6.isDirty(1)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 6 failed: Dirty pinned page 1 must remain dirty.");
+            }
+
+            if (pinPool6.containsPage(2)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 6 failed: Clean unpinned page 2 should have been evicted.");
+            }
+
+            if (!pinPool6.containsPage(3)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 6 failed: Page 3 must be in pool.");
+            }
+
+            /*
+             * Pin Test 7: Dirty + unpinned.
+             * Unpin page 1, cause eviction by loading page 4.
+             * Page 1 is safely written to disk, evicted, modification survives on disk.
+             */
+            pinPool6.unpinPage(1);
+
+            int savesBeforePinEvict = countingStorage.saveCount;
+            pinPool6.getPage(4, countingStorage);
+
+            if (countingStorage.saveCount != savesBeforePinEvict + 1) {
+
+                throw new IllegalStateException(
+                        "Pin Test 7 failed: Evicting unpinned dirty page 1 should write it to disk.");
+            }
+
+            if (pinPool6.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 7 failed: Unpinned dirty page 1 should be evicted.");
+            }
+
+            Page diskPp1 = countingStorage.loadPage(1);
+
+            if (diskPp1 == null || !diskPp1.getRows().get(diskPp1.getRowCount() - 1).getValues().equals(
+                    List.of("104", "AlicePinnedRow", "888"))) {
+
+                throw new IllegalStateException(
+                        "Pin Test 7 failed: Modification of unpinned dirty page 1 was not persisted.");
+            }
+
+            /*
+             * Pin Test 8: Invalid unpin.
+             * Insert page 1. Pin count is 0. Call unpinPage(1).
+             * Expected: clear failure (IllegalStateException).
+             * Pin count must remain 0, never negative.
+             */
+            BufferPool pinPool8 = new BufferPool(2);
+            pinPool8.putPage(new Page(1, 5));
+
+            boolean caughtInvalidUnpin = false;
+
+            try {
+
+                pinPool8.unpinPage(1);
+
+            } catch (IllegalStateException expected) {
+
+                caughtInvalidUnpin = true;
+            }
+
+            if (!caughtInvalidUnpin) {
+
+                throw new IllegalStateException(
+                        "Pin Test 8 failed: Expected IllegalStateException when unpinning page with pin count 0.");
+            }
+
+            if (pinPool8.getPinCount(1) != 0) {
+
+                throw new IllegalStateException(
+                        "Pin Test 8 failed: Pin count must remain 0, got: " + pinPool8.getPinCount(1));
+            }
+
+            /*
+             * Pin Test 9: Missing page.
+             * pinPage(999) and unpinPage(999) on uncached page must not create fake pin entries.
+             */
+            BufferPool pinPool9 = new BufferPool(2);
+            pinPool9.pinPage(999);
+
+            if (pinPool9.getPinCount(999) != 0 || pinPool9.isPinned(999)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 9 failed: pinPage(999) on missing page must not create pin entry.");
+            }
+
+            pinPool9.unpinPage(999);
+
+            if (pinPool9.getPinCount(999) != 0 || pinPool9.isPinned(999)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 9 failed: unpinPage(999) on missing page must not create pin entry.");
+            }
+
+            /*
+             * Pin Test 10: Capacity 1.
+             * capacity = 1. Insert page 1. Pin page 1.
+             * Attempt to insert page 2 -> IllegalStateException.
+             * Unpin page 1.
+             * Insert page 2 -> page 1 is evicted, page 2 exists, size is 1.
+             */
+            BufferPool pinPool10 = new BufferPool(1);
+            pinPool10.putPage(new Page(1, 5));
+            pinPool10.pinPage(1);
+
+            boolean caughtCap1 = false;
+
+            try {
+
+                pinPool10.putPage(new Page(2, 5));
+
+            } catch (IllegalStateException expected) {
+
+                caughtCap1 = true;
+            }
+
+            if (!caughtCap1) {
+
+                throw new IllegalStateException(
+                        "Pin Test 10 failed: Expected failure when inserting into capacity 1 with pinned page.");
+            }
+
+            if (pinPool10.size() != 1 || !pinPool10.containsPage(1) || pinPool10.containsPage(2)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 10 failed: Page 1 must remain when capacity 1 insert fails.");
+            }
+
+            pinPool10.unpinPage(1);
+            pinPool10.putPage(new Page(2, 5));
+
+            if (pinPool10.size() != 1 || pinPool10.containsPage(1) || !pinPool10.containsPage(2)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 10 failed: Page 1 should be evicted after unpinning in capacity 1 pool.");
+            }
+
+            /*
+             * Pin Test 11: Clear removes pin metadata.
+             */
+            BufferPool pinPool11 = new BufferPool(2);
+            pinPool11.putPage(new Page(1, 5));
+            pinPool11.pinPage(1);
+            pinPool11.clear();
+
+            if (pinPool11.getPinCount(1) != 0 || pinPool11.isPinned(1)) {
+
+                throw new IllegalStateException(
+                        "Pin Test 11 failed: clear() must remove all pin metadata.");
+            }
+
             System.out.println("BufferPool regression tests passed successfully.");
 
         } finally {
