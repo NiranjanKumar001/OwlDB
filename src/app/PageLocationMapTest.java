@@ -4,8 +4,11 @@ import page.Page;
 import row.Row;
 import storage.PageFileManager;
 import storage.PageLocationMap;
+import storage.PageStorage;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
 
@@ -20,196 +23,236 @@ public class PageLocationMapTest {
 
         System.out.println("Running PageLocationMap regression tests...");
 
-        PageLocationMap map = new PageLocationMap();
-
         /*
-         * 1. Initially empty.
+         * Test 1 — basic mapping:
+         * 1 -> 0
+         * 2 -> 128
+         * 3 -> 256
+         * Verify get(), contains(), and size().
          */
-        if (map.size() != 0) {
+        PageLocationMap map1 = new PageLocationMap();
+
+        if (map1.size() != 0) {
 
             throw new IllegalStateException(
-                    "Expected initial map size to be 0, got: " + map.size());
+                    "Expected initial map size 0, got: " + map1.size());
         }
 
-        /*
-         * 2. Store: pageId 5 -> offset 1024.
-         */
-        map.put(5, 1024L);
+        map1.put(1, 0L);
+        map1.put(2, 128L);
+        map1.put(3, 256L);
 
-        /*
-         * 3. Retrieve offset and verify it is 1024.
-         */
-        Long offset5 = map.get(5);
-
-        if (offset5 == null || offset5 != 1024L) {
+        if (!map1.contains(1) || !map1.contains(2) || !map1.contains(3)) {
 
             throw new IllegalStateException(
-                    "Expected offset 1024 for pageId 5, got: " + offset5);
+                    "contains() check failed for inserted keys.");
         }
 
-        /*
-         * 4. contains(5) returns true.
-         */
-        if (!map.contains(5)) {
+        if (map1.contains(999)) {
 
             throw new IllegalStateException(
-                    "Expected map to contain pageId 5.");
+                    "contains(999) should be false.");
         }
 
-        /*
-         * 5. Unknown page ID is not reported as present.
-         */
-        if (map.contains(999)) {
+        if (map1.get(1) != 0L || map1.get(2) != 128L || map1.get(3) != 256L) {
 
             throw new IllegalStateException(
-                    "Map should not contain unknown pageId 999.");
+                    "get() returned incorrect offset values.");
         }
 
-        if (map.get(999) != null) {
+        if (map1.size() != 3) {
 
             throw new IllegalStateException(
-                    "Expected null for unknown pageId 999, got: " + map.get(999));
+                    "Expected map size 3, got: " + map1.size());
         }
 
-        /*
-         * 6. Multiple mappings work:
-         *    1 -> 0
-         *    2 -> 128
-         *    3 -> 256
-         */
-        map.put(1, 0L);
-        map.put(2, 128L);
-        map.put(3, 256L);
-
-        if (map.get(1) == null || map.get(1) != 0L) {
-
-            throw new IllegalStateException(
-                    "Expected offset 0 for pageId 1, got: " + map.get(1));
-        }
-
-        if (map.get(2) == null || map.get(2) != 128L) {
-
-            throw new IllegalStateException(
-                    "Expected offset 128 for pageId 2, got: " + map.get(2));
-        }
-
-        if (map.get(3) == null || map.get(3) != 256L) {
-
-            throw new IllegalStateException(
-                    "Expected offset 256 for pageId 3, got: " + map.get(3));
-        }
-
-        /*
-         * 7. size() correctly represents the number of unique page IDs (currently 4: 5, 1, 2, 3).
-         */
-        if (map.size() != 4) {
-
-            throw new IllegalStateException(
-                    "Expected map size 4, got: " + map.size());
-        }
-
-        /*
-         * 8. Updating an existing page ID replaces its old offset:
-         *    5 -> 1024 becomes 5 -> 2048.
-         */
-        map.put(5, 2048L);
-
-        Long updatedOffset5 = map.get(5);
-
-        if (updatedOffset5 == null || updatedOffset5 != 2048L) {
-
-            throw new IllegalStateException(
-                    "Expected updated offset 2048 for pageId 5, got: " + updatedOffset5);
-        }
-
-        // Size should still be 4 after updating an existing key
-        if (map.size() != 4) {
-
-            throw new IllegalStateException(
-                    "Expected map size to remain 4 after update, got: " + map.size());
-        }
-
-        /*
-         * 9. Integration check with PageFileManager:
-         *    Page ID -> PageLocationMap -> file offset -> PageFileManager -> Page
-         */
-        File tempFile = null;
+        File tempMetaFile = null;
+        File tempMalformedFile = null;
+        File tempPageFile = null;
 
         try {
 
-            tempFile = File.createTempFile("owldb_location_test_", ".data");
-            tempFile.deleteOnExit();
+            tempMetaFile = File.createTempFile("owldb_meta_test_", ".data");
+            tempMetaFile.deleteOnExit();
 
-            PageFileManager pfm = new PageFileManager(tempFile);
-            PageLocationMap locationMap = new PageLocationMap();
+            /*
+             * Test 2 — save:
+             * Save map1 to temporary metadata file.
+             */
+            map1.save(tempMetaFile);
 
-            // Create and write page
-            Page page = new Page(42, 3);
-            Row row1 = new Row(List.of("101", "Order Alpha", "Complete"));
-            Row row2 = new Row(List.of("102", "Order Beta", "Pending"));
-            page.addRow(row1);
-            page.addRow(row2);
-
-            long writtenOffset = pfm.writePage(page);
-
-            // Record in location map
-            locationMap.put(page.getPageId(), writtenOffset);
-
-            // Lookup offset from location map
-            Long lookupOffset = locationMap.get(42);
-
-            if (lookupOffset == null || lookupOffset != writtenOffset) {
+            if (tempMetaFile.length() == 0) {
 
                 throw new IllegalStateException(
-                        "Location map returned incorrect offset: " + lookupOffset);
+                        "Metadata file was empty after save.");
             }
 
-            // Read page back using retrieved offset
-            Page retrievedPage = pfm.readPage(lookupOffset);
+            /*
+             * Test 3 — load:
+             * Create a NEW PageLocationMap instance and load the file.
+             */
+            PageLocationMap map2 = new PageLocationMap();
+            map2.load(tempMetaFile);
 
-            if (retrievedPage == null) {
+            if (map2.size() != 3) {
 
                 throw new IllegalStateException(
-                        "Retrieved page from PageFileManager must not be null.");
+                        "Expected loaded map size 3, got: " + map2.size());
             }
 
-            if (retrievedPage.getPageId() != 42) {
+            if (map2.get(1) != 0L || map2.get(2) != 128L || map2.get(3) != 256L) {
 
                 throw new IllegalStateException(
-                        "Expected retrieved pageId 42, got: " + retrievedPage.getPageId());
+                        "Loaded map contains incorrect offset values.");
             }
 
-            if (retrievedPage.getMaxRows() != 3) {
+            /*
+             * Test 4 — update:
+             * Change 2 -> 128 to 2 -> 512, save again, load into another new map.
+             */
+            map1.put(2, 512L);
+            map1.save(tempMetaFile);
+
+            PageLocationMap map3 = new PageLocationMap();
+            map3.load(tempMetaFile);
+
+            if (map3.size() != 3) {
 
                 throw new IllegalStateException(
-                        "Expected retrieved maxRows 3, got: " + retrievedPage.getMaxRows());
+                        "Expected updated map size 3, got: " + map3.size());
             }
 
-            if (retrievedPage.getRowCount() != 2) {
+            if (map3.get(2) != 512L) {
 
                 throw new IllegalStateException(
-                        "Expected row count 2, got: " + retrievedPage.getRowCount());
+                        "Expected updated offset 512 for page 2, got: " + map3.get(2));
+            }
+
+            /*
+             * Test 5 — missing file:
+             * Load a nonexistent file and verify map remains empty.
+             */
+            File nonExistentFile = new File("non_existent_metadata_file_test.tmp");
+            PageLocationMap mapEmpty = new PageLocationMap();
+            mapEmpty.load(nonExistentFile);
+
+            if (mapEmpty.size() != 0) {
+
+                throw new IllegalStateException(
+                        "Expected map to remain empty for non-existent file.");
+            }
+
+            /*
+             * Test 6 — malformed metadata:
+             * Create a file with an invalid line and verify load fails clearly.
+             */
+            tempMalformedFile = File.createTempFile("owldb_malformed_test_", ".data");
+            tempMalformedFile.deleteOnExit();
+
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(tempMalformedFile))) {
+
+                writer.write("1|100");
+                writer.newLine();
+                writer.write("INVALID_LINE");
+                writer.newLine();
+            }
+
+            PageLocationMap mapMalformed = new PageLocationMap();
+            boolean caughtMalformed = false;
+
+            try {
+
+                mapMalformed.load(tempMalformedFile);
+
+            } catch (IOException expected) {
+
+                caughtMalformed = true;
+            }
+
+            if (!caughtMalformed) {
+
+                throw new IllegalStateException(
+                        "Expected load() to throw IOException on malformed metadata line.");
+            }
+
+            /*
+             * Integration Test:
+             * PageStorage -> PageLocationMap -> save metadata
+             * -> NEW PageLocationMap -> load metadata -> PageFileManager -> original Page
+             */
+            tempPageFile = File.createTempFile("owldb_storage_integration_", ".data");
+            tempPageFile.deleteOnExit();
+
+            PageFileManager pfm = new PageFileManager(tempPageFile);
+            PageStorage storage = new PageStorage(pfm);
+
+            Page originalPage = new Page(88, 3);
+            Row row1 = new Row(List.of("1001", "ItemA", "10.50"));
+            Row row2 = new Row(List.of("1002", "ItemB", "25.00"));
+            originalPage.addRow(row1);
+            originalPage.addRow(row2);
+
+            storage.savePage(originalPage);
+
+            // Save the PageStorage's PageLocationMap metadata
+            storage.getPageLocationMap().save(tempMetaFile);
+
+            // Create a completely new PageLocationMap and load metadata
+            PageLocationMap restoredMap = new PageLocationMap();
+            restoredMap.load(tempMetaFile);
+
+            Long restoredOffset = restoredMap.get(88);
+
+            if (restoredOffset == null) {
+
+                throw new IllegalStateException(
+                        "Restored PageLocationMap missing offset for page 88.");
+            }
+
+            // Read the page directly using PageFileManager with restored offset
+            Page retrievedPage = pfm.readPage(restoredOffset);
+
+            if (retrievedPage == null || retrievedPage.getPageId() != 88) {
+
+                throw new IllegalStateException(
+                        "Failed to retrieve original page using persisted metadata.");
+            }
+
+            if (retrievedPage.getMaxRows() != 3 || retrievedPage.getRowCount() != 2) {
+
+                throw new IllegalStateException(
+                        "Retrieved page metadata mismatch.");
             }
 
             if (!retrievedPage.getRows().get(0).getValues().equals(row1.getValues())
                     || !retrievedPage.getRows().get(1).getValues().equals(row2.getValues())) {
 
                 throw new IllegalStateException(
-                        "Retrieved row values do not match original page.");
+                        "Retrieved page row values mismatch.");
             }
+
+            System.out.println("PageLocationMap regression tests passed successfully.");
 
         } catch (IOException e) {
 
-            throw new RuntimeException("Integration test failed with IOException: " + e.getMessage(), e);
+            throw new RuntimeException("PageLocationMapTest failed: " + e.getMessage(), e);
 
         } finally {
 
-            if (tempFile != null && tempFile.exists()) {
+            if (tempMetaFile != null && tempMetaFile.exists()) {
 
-                tempFile.delete();
+                tempMetaFile.delete();
+            }
+
+            if (tempMalformedFile != null && tempMalformedFile.exists()) {
+
+                tempMalformedFile.delete();
+            }
+
+            if (tempPageFile != null && tempPageFile.exists()) {
+
+                tempPageFile.delete();
             }
         }
-
-        System.out.println("PageLocationMap regression tests passed successfully.");
     }
 }
