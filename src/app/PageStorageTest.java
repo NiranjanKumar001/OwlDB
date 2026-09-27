@@ -2,6 +2,8 @@ package app;
 
 import page.Page;
 import row.Row;
+import storage.PageFileManager;
+import storage.PageLocationMap;
 import storage.PageStorage;
 
 import java.io.File;
@@ -19,20 +21,49 @@ public class PageStorageTest {
 
         System.out.println("Running PageStorage regression tests...");
 
-        File tempFile = null;
+        File tempPageFile = null;
+        File tempLocationFile = null;
+        File tempFreshPageFile = null;
+        File tempMissingMetaFile = null;
 
         try {
 
             /*
-             * 1. Create PageStorage using a temporary file.
+             * Test 1 — fresh storage:
+             * 1. Create temporary page data file.
+             * 2. Create temporary metadata file.
+             * 3. Create PageStorage.
+             * 4. Verify loading an unknown page behaves correctly.
              */
-            tempFile = File.createTempFile("owldb_page_storage_test_", ".data");
-            tempFile.deleteOnExit();
+            tempPageFile = File.createTempFile("owldb_storage_test_", ".data");
+            tempPageFile.deleteOnExit();
 
-            PageStorage pageStorage = new PageStorage(tempFile);
+            tempLocationFile = File.createTempFile("owldb_meta_test_", ".data");
+            tempLocationFile.deleteOnExit();
+            tempLocationFile.delete();
+
+            PageStorage storage1 = new PageStorage(tempPageFile, tempLocationFile);
+
+            if (storage1.getPageLocationMap().size() != 0) {
+
+                throw new IllegalStateException(
+                        "Test 1 failed: Expected initial map size 0, got: "
+                                + storage1.getPageLocationMap().size());
+            }
+
+            Page unknownPage = storage1.loadPage(999);
+
+            if (unknownPage != null) {
+
+                throw new IllegalStateException(
+                        "Test 1 failed: Expected null for unknown page ID 999.");
+            }
 
             /*
-             * 2 & 3. Create Page: pageId = 10, maxRows = 3 with rows.
+             * Test 2 — initial persistence:
+             * 1. Create Page 10.
+             * 2. Save it.
+             * 3. Save page-location metadata.
              */
             Page page10 = new Page(10, 3);
             Row row1 = new Row(List.of("1", "Alpha", "100"));
@@ -40,57 +71,86 @@ public class PageStorageTest {
             page10.addRow(row1);
             page10.addRow(row2);
 
-            /*
-             * 4 & 5. Call savePage and verify valid offset.
-             */
-            long offset10 = pageStorage.savePage(page10);
+            long offset10 = storage1.savePage(page10);
 
             if (offset10 != 0) {
 
                 throw new IllegalStateException(
-                        "Expected first page offset to be 0, got: " + offset10);
+                        "Test 2 failed: Expected first page offset 0, got: " + offset10);
+            }
+
+            storage1.savePageLocations();
+
+            if (!tempLocationFile.exists()) {
+
+                throw new IllegalStateException(
+                        "Test 2 failed: Metadata file was not created by savePageLocations().");
             }
 
             /*
-             * 6 & 7. Call loadPage(10) and verify metadata and rows.
+             * Test 3 — simulated restart:
+             * 1. Destroy/release the first PageStorage object.
+             * 2. Create a NEW PageLocationMap.
+             * 3. Create a NEW PageStorage using the SAME page data file and metadata file.
+             * 4. Do NOT manually insert the old page location into the new map.
+             * 5. Call:
+             *        loadPage(10)
+             * 6. Verify the page is successfully loaded.
              */
-            Page loaded10 = pageStorage.loadPage(10);
+            storage1 = null;
+
+            PageLocationMap newMap = new PageLocationMap();
+            PageFileManager restartPfm = new PageFileManager(tempPageFile);
+            PageStorage storage2 = new PageStorage(restartPfm, newMap, tempLocationFile);
+
+            if (storage2.getPageLocationMap().size() != 1) {
+
+                throw new IllegalStateException(
+                        "Test 3 failed: Expected map size 1 after restart, got: "
+                                + storage2.getPageLocationMap().size());
+            }
+
+            Page loaded10 = storage2.loadPage(10);
 
             if (loaded10 == null) {
 
                 throw new IllegalStateException(
-                        "loadPage(10) returned null.");
+                        "Test 3 failed: loadPage(10) returned null after restart.");
             }
 
             if (loaded10.getPageId() != 10) {
 
                 throw new IllegalStateException(
-                        "Expected page ID 10, got: " + loaded10.getPageId());
+                        "Test 3 failed: Expected pageId 10, got: " + loaded10.getPageId());
             }
 
             if (loaded10.getMaxRows() != 3) {
 
                 throw new IllegalStateException(
-                        "Expected maxRows 3, got: " + loaded10.getMaxRows());
+                        "Test 3 failed: Expected maxRows 3, got: " + loaded10.getMaxRows());
             }
 
             if (loaded10.getRowCount() != 2) {
 
                 throw new IllegalStateException(
-                        "Expected row count 2, got: " + loaded10.getRowCount());
+                        "Test 3 failed: Expected rowCount 2, got: " + loaded10.getRowCount());
             }
 
             if (!loaded10.getRows().get(0).getValues().equals(row1.getValues())
                     || !loaded10.getRows().get(1).getValues().equals(row2.getValues())) {
 
                 throw new IllegalStateException(
-                        "Loaded page 10 row values do not match original rows.");
+                        "Test 3 failed: Loaded page 10 row values do not match original rows.");
             }
 
             /*
-             * 8 & 9. Create another Page with different ID (20) and save it.
+             * Test 4 — add another page after restart:
+             * 1. Save Page 20 using the second PageStorage.
+             * 2. Save metadata.
+             * 3. Create a THIRD PageStorage instance.
+             * 4. Verify both Page 10 and Page 20 can be loaded.
              */
-            Page page20 = new Page(20, 4);
+            Page page20 = new Page(20, 5);
             Row row3 = new Row(List.of("10", "X", "One"));
             Row row4 = new Row(List.of("20", "Y", "Two"));
             Row row5 = new Row(List.of("30", "Z", "Three"));
@@ -98,103 +158,117 @@ public class PageStorageTest {
             page20.addRow(row4);
             page20.addRow(row5);
 
-            long offset20 = pageStorage.savePage(page20);
+            long offset20 = storage2.savePage(page20);
 
             if (offset20 <= offset10) {
 
                 throw new IllegalStateException(
-                        "Expected offset20 (" + offset20 + ") > offset10 (" + offset10 + ")");
+                        "Test 4 failed: Expected offset20 > offset10.");
+            }
+
+            storage2.savePageLocations();
+
+            PageStorage storage3 = new PageStorage(tempPageFile, tempLocationFile);
+
+            if (storage3.getPageLocationMap().size() != 2) {
+
+                throw new IllegalStateException(
+                        "Test 4 failed: Expected map size 2 in storage3, got: "
+                                + storage3.getPageLocationMap().size());
+            }
+
+            Page thirdLoaded10 = storage3.loadPage(10);
+            Page thirdLoaded20 = storage3.loadPage(20);
+
+            if (thirdLoaded10 == null || thirdLoaded10.getPageId() != 10 || thirdLoaded10.getRowCount() != 2) {
+
+                throw new IllegalStateException(
+                        "Test 4 failed: Page 10 failed to load from storage3.");
+            }
+
+            if (thirdLoaded20 == null || thirdLoaded20.getPageId() != 20 || thirdLoaded20.getRowCount() != 3) {
+
+                throw new IllegalStateException(
+                        "Test 4 failed: Page 20 failed to load from storage3.");
+            }
+
+            if (!thirdLoaded10.getRows().get(0).getValues().equals(row1.getValues())
+                    || !thirdLoaded10.getRows().get(1).getValues().equals(row2.getValues())) {
+
+                throw new IllegalStateException(
+                        "Test 4 failed: Page 10 row content mismatch in storage3.");
+            }
+
+            if (!thirdLoaded20.getRows().get(0).getValues().equals(row3.getValues())
+                    || !thirdLoaded20.getRows().get(1).getValues().equals(row4.getValues())
+                    || !thirdLoaded20.getRows().get(2).getValues().equals(row5.getValues())) {
+
+                throw new IllegalStateException(
+                        "Test 4 failed: Page 20 row content mismatch in storage3.");
             }
 
             /*
-             * 10 & 11. Load both pages independently and verify neither was corrupted.
+             * Test 5 — missing metadata:
+             * 1. Create a fresh temporary location.
+             * 2. Create PageStorage without metadata.
+             * 3. Verify initialization succeeds.
+             * 4. Verify no pages are falsely reported as existing.
              */
-            Page reloaded10 = pageStorage.loadPage(10);
-            Page reloaded20 = pageStorage.loadPage(20);
+            tempFreshPageFile = File.createTempFile("owldb_fresh_page_", ".data");
+            tempFreshPageFile.deleteOnExit();
 
-            if (reloaded10 == null || reloaded10.getPageId() != 10 || reloaded10.getRowCount() != 2) {
+            tempMissingMetaFile = new File(
+                    tempFreshPageFile.getParentFile(),
+                    "owldb_missing_meta_" + System.currentTimeMillis() + ".data");
+            if (tempMissingMetaFile.exists()) {
 
-                throw new IllegalStateException(
-                        "Page 10 corrupted after saving Page 20.");
+                tempMissingMetaFile.delete();
             }
 
-            if (reloaded20 == null || reloaded20.getPageId() != 20 || reloaded20.getRowCount() != 3) {
+            PageStorage freshStorage = new PageStorage(tempFreshPageFile, tempMissingMetaFile);
+
+            if (freshStorage.getPageLocationMap().size() != 0) {
 
                 throw new IllegalStateException(
-                        "Page 20 failed independent load verification.");
+                        "Test 5 failed: Fresh storage with missing metadata should have empty map.");
             }
 
-            if (!reloaded10.getRows().get(0).getValues().equals(row1.getValues())
-                    || !reloaded10.getRows().get(1).getValues().equals(row2.getValues())) {
+            if (freshStorage.loadPage(0) != null || freshStorage.loadPage(10) != null) {
 
                 throw new IllegalStateException(
-                        "Page 10 row data mismatch on independent reload.");
-            }
-
-            if (!reloaded20.getRows().get(0).getValues().equals(row3.getValues())
-                    || !reloaded20.getRows().get(1).getValues().equals(row4.getValues())
-                    || !reloaded20.getRows().get(2).getValues().equals(row5.getValues())) {
-
-                throw new IllegalStateException(
-                        "Page 20 row data mismatch on independent reload.");
+                        "Test 5 failed: Non-existent pages falsely reported as existing.");
             }
 
             /*
-             * 12. Test an unknown page ID: loadPage(999) must return null.
-             */
-            Page unknownPage = pageStorage.loadPage(999);
-
-            if (unknownPage != null) {
-
-                throw new IllegalStateException(
-                        "Expected null for unknown pageId 999, got: " + unknownPage);
-            }
-
-            /*
-             * 13. Test saving the same page ID again with changed row data.
-             *     Second save appends a new record and updates PageLocationMap to point
-             *     to the newest offset.
+             * Test 6 — page update/overwrite persistence across restart:
+             * Append new row to Page 10, save, save metadata, restart and verify newest version.
              */
             Row row6 = new Row(List.of("3", "Gamma", "300"));
             page10.addRow(row6);
 
-            long updatedOffset10 = pageStorage.savePage(page10);
+            long updatedOffset10 = storage3.savePage(page10);
 
             if (updatedOffset10 <= offset20) {
 
                 throw new IllegalStateException(
-                        "Updated page 10 should receive new appended offset > offset20.");
+                        "Test 6 failed: Updated page 10 offset should be greater than offset20.");
             }
 
-            Long mapOffset10 = pageStorage.getPageLocationMap().get(10);
+            storage3.savePageLocations();
 
-            if (mapOffset10 == null || mapOffset10 != updatedOffset10) {
-
-                throw new IllegalStateException(
-                        "PageLocationMap failed to update to newest offset.");
-            }
-
-            Page updatedLoaded10 = pageStorage.loadPage(10);
+            PageStorage storage4 = new PageStorage(tempPageFile, tempLocationFile);
+            Page updatedLoaded10 = storage4.loadPage(10);
 
             if (updatedLoaded10 == null || updatedLoaded10.getRowCount() != 3) {
 
                 throw new IllegalStateException(
-                        "Expected newest version of page 10 with 3 rows.");
+                        "Test 6 failed: Expected updated page 10 with 3 rows after restart.");
             }
 
             if (!updatedLoaded10.getRows().get(2).getValues().equals(row6.getValues())) {
 
                 throw new IllegalStateException(
-                        "Newest row value in updated page 10 is incorrect.");
-            }
-
-            // Verify Page 20 still loads correctly
-            Page verifyPage20 = pageStorage.loadPage(20);
-
-            if (verifyPage20 == null || verifyPage20.getRowCount() != 3) {
-
-                throw new IllegalStateException(
-                        "Page 20 affected by update to Page 10.");
+                        "Test 6 failed: Updated row content mismatch after restart.");
             }
 
             System.out.println("PageStorage regression tests passed successfully.");
@@ -205,9 +279,24 @@ public class PageStorageTest {
 
         } finally {
 
-            if (tempFile != null && tempFile.exists()) {
+            if (tempPageFile != null && tempPageFile.exists()) {
 
-                tempFile.delete();
+                tempPageFile.delete();
+            }
+
+            if (tempLocationFile != null && tempLocationFile.exists()) {
+
+                tempLocationFile.delete();
+            }
+
+            if (tempFreshPageFile != null && tempFreshPageFile.exists()) {
+
+                tempFreshPageFile.delete();
+            }
+
+            if (tempMissingMetaFile != null && tempMissingMetaFile.exists()) {
+
+                tempMissingMetaFile.delete();
             }
         }
     }

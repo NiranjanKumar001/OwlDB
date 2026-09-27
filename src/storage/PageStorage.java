@@ -8,44 +8,110 @@ import java.io.IOException;
 /*
  * Coordinates page persistence using PageFileManager and PageLocationMap.
  *
- * Provides explicit page-level save and load operations.
+ * Supports restoring page-location metadata from an existing metadata file on startup.
  */
 public class PageStorage {
+
+    private static final String DEFAULT_LOCATION_FILE = "pages/page_locations.data";
 
     private PageFileManager pageFileManager;
 
     private PageLocationMap pageLocationMap;
 
-    public PageStorage() {
+    private File locationFile;
+
+    public PageStorage() throws IOException {
 
         this(
                 new PageFileManager(),
-                new PageLocationMap());
+                new PageLocationMap(),
+                new File(DEFAULT_LOCATION_FILE));
     }
 
     public PageStorage(
-            File pageFile) {
+            File pageFile) throws IOException {
 
         this(
                 new PageFileManager(pageFile),
-                new PageLocationMap());
+                new PageLocationMap(),
+                (File) null);
     }
 
     public PageStorage(
-            PageFileManager pageFileManager) {
+            File pageFile,
+            File locationFile) throws IOException {
+
+        this(
+                new PageFileManager(pageFile),
+                new PageLocationMap(),
+                locationFile);
+    }
+
+    public PageStorage(
+            PageFileManager pageFileManager) throws IOException {
 
         this(
                 pageFileManager,
-                new PageLocationMap());
+                new PageLocationMap(),
+                (File) null);
     }
 
     public PageStorage(
             PageFileManager pageFileManager,
-            PageLocationMap pageLocationMap) {
+            File locationFile) throws IOException {
+
+        this(
+                pageFileManager,
+                new PageLocationMap(),
+                locationFile);
+    }
+
+    public PageStorage(
+            PageFileManager pageFileManager,
+            String locationFilePath) throws IOException {
+
+        this(
+                pageFileManager,
+                new PageLocationMap(),
+                locationFilePath != null ? new File(locationFilePath) : null);
+    }
+
+    public PageStorage(
+            PageFileManager pageFileManager,
+            PageLocationMap pageLocationMap) throws IOException {
+
+        this(
+                pageFileManager,
+                pageLocationMap,
+                (File) null);
+    }
+
+    public PageStorage(
+            PageFileManager pageFileManager,
+            PageLocationMap pageLocationMap,
+            String locationFilePath) throws IOException {
+
+        this(
+                pageFileManager,
+                pageLocationMap,
+                locationFilePath != null ? new File(locationFilePath) : null);
+    }
+
+    public PageStorage(
+            PageFileManager pageFileManager,
+            PageLocationMap pageLocationMap,
+            File locationFile) throws IOException {
 
         this.pageFileManager = pageFileManager;
 
         this.pageLocationMap = pageLocationMap;
+
+        this.locationFile = locationFile;
+
+        if (locationFile != null && locationFile.exists()) {
+
+            this.pageLocationMap.load(locationFile);
+        }
     }
 
     /*
@@ -89,6 +155,32 @@ public class PageStorage {
                 offset);
     }
 
+    /*
+     * Save the current page-location metadata to the configured metadata file.
+     */
+    public void savePageLocations() throws IOException {
+
+        if (locationFile == null) {
+
+            throw new IllegalStateException(
+                    "No metadata file configured for saving page locations.");
+        }
+
+        pageLocationMap.save(locationFile);
+    }
+
+    public void savePageLocations(
+            File file) throws IOException {
+
+        pageLocationMap.save(file);
+    }
+
+    public void savePageLocations(
+            String filePath) throws IOException {
+
+        pageLocationMap.save(filePath);
+    }
+
     public PageFileManager getPageFileManager() {
 
         return pageFileManager;
@@ -97,5 +189,10 @@ public class PageStorage {
     public PageLocationMap getPageLocationMap() {
 
         return pageLocationMap;
+    }
+
+    public File getLocationFile() {
+
+        return locationFile;
     }
 }
