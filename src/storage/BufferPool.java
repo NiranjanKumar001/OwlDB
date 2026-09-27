@@ -2,13 +2,19 @@ package storage;
 
 import page.Page;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /*
- * In-memory buffer pool that caches disk pages with a fixed maximum capacity.
+ * In-memory buffer pool with Least Recently Used (LRU) eviction.
  *
- * Provides average O(1) page lookup, insertion, and replacement.
+ * For a database targeting 10M+ records, disk pages cannot all fit in RAM.
+ * The buffer pool keeps frequently accessed pages in memory with a fixed capacity.
+ * When the pool reaches capacity, the least recently used page is evicted
+ * to make space for incoming pages, keeping hot pages in cache without unbounded memory growth.
+ *
+ * Uses LinkedHashMap with access-order to achieve average O(1) lookup, update,
+ * insertion, and eviction.
  */
 public class BufferPool {
 
@@ -27,7 +33,7 @@ public class BufferPool {
 
         this.capacity = capacity;
 
-        this.pages = new HashMap<>();
+        this.pages = new LinkedHashMap<>(capacity, 0.75f, true);
     }
 
     public Page getPage(
@@ -47,16 +53,10 @@ public class BufferPool {
 
         int pageId = page.getPageId();
 
-        if (pages.containsKey(pageId)) {
+        if (!pages.containsKey(pageId) && pages.size() >= capacity) {
 
-            pages.put(pageId, page);
-            return;
-        }
-
-        if (pages.size() >= capacity) {
-
-            throw new IllegalStateException(
-                    "Buffer pool is full (capacity: " + capacity + ").");
+            int eldestPageId = pages.keySet().iterator().next();
+            pages.remove(eldestPageId);
         }
 
         pages.put(pageId, page);
