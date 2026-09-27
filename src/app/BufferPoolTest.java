@@ -428,6 +428,8 @@ public class BufferPoolTest {
         File tempMetaFile = null;
         File lifecyclePageFile = null;
         File lifecycleMetaFile = null;
+        File safetyPageFile = null;
+        File safetyMetaFile = null;
 
         try {
 
@@ -1763,6 +1765,515 @@ public class BufferPoolTest {
                         "Lifecycle Test 8 failed: Pin count must be 0 after release.");
             }
 
+            /*
+             * ==================================================
+             * OWLET-071 BufferPool Capacity and Eviction Safety Tests
+             * ==================================================
+             */
+
+            /*
+             * Safety Test 1: Invalid capacity values.
+             * 0, -1, -100 must throw IllegalArgumentException for all constructors.
+             */
+            int[] invalidCapacities = {0, -1, -100};
+            for (int invCap : invalidCapacities) {
+
+                boolean caughtConstructor1 = false;
+                try {
+                    new BufferPool(invCap);
+                } catch (IllegalArgumentException e) {
+                    caughtConstructor1 = true;
+                }
+                if (!caughtConstructor1) {
+                    throw new IllegalStateException(
+                            "Safety Test 1 failed: Expected IllegalArgumentException for capacity " + invCap);
+                }
+
+                boolean caughtConstructor2 = false;
+                try {
+                    new BufferPool(invCap, countingStorage);
+                } catch (IllegalArgumentException e) {
+                    caughtConstructor2 = true;
+                }
+                if (!caughtConstructor2) {
+                    throw new IllegalStateException(
+                            "Safety Test 1 failed: Expected IllegalArgumentException for storage constructor capacity " + invCap);
+                }
+            }
+
+            /*
+             * Safety Test 2: Capacity is never exceeded.
+             * Capacity = 3. Insert 100 pages, verify size <= capacity after every put.
+             */
+            BufferPool capCheckPool = new BufferPool(3);
+            for (int i = 1; i <= 100; i++) {
+                capCheckPool.putPage(new Page(i, 5));
+                if (capCheckPool.size() > capCheckPool.getCapacity()) {
+                    throw new IllegalStateException(
+                            "Safety Test 2 failed: Pool size " + capCheckPool.size()
+                                    + " exceeded capacity " + capCheckPool.getCapacity()
+                                    + " on insertion " + i);
+                }
+            }
+            if (capCheckPool.size() != 3) {
+                throw new IllegalStateException(
+                        "Safety Test 2 failed: Final pool size should be exactly capacity 3, got: "
+                                + capCheckPool.size());
+            }
+
+            /*
+             * Safety Test 3: All pages pinned test.
+             * Capacity = 2. Insert 1, 2. Pin both.
+             * Inserting page 3 must fail cleanly with IllegalStateException.
+             * Pool size remains 2, pages 1 and 2 remain pinned, page 3 is not inserted.
+             */
+            BufferPool allPinnedPool = new BufferPool(2);
+            allPinnedPool.putPage(new Page(1, 5));
+            allPinnedPool.putPage(new Page(2, 5));
+            allPinnedPool.pinPage(1);
+            allPinnedPool.pinPage(2);
+
+            boolean allPinnedCaught = false;
+            try {
+                allPinnedPool.putPage(new Page(3, 5));
+            } catch (IllegalStateException e) {
+                allPinnedCaught = true;
+            }
+
+            if (!allPinnedCaught) {
+                throw new IllegalStateException(
+                        "Safety Test 3 failed: Inserting into full all-pinned pool must throw IllegalStateException.");
+            }
+
+            if (allPinnedPool.size() != 2 || allPinnedPool.size() > allPinnedPool.getCapacity()) {
+                throw new IllegalStateException(
+                        "Safety Test 3 failed: Pool size must remain 2, got: " + allPinnedPool.size());
+            }
+
+            if (!allPinnedPool.containsPage(1) || !allPinnedPool.isPinned(1)) {
+                throw new IllegalStateException(
+                        "Safety Test 3 failed: Pinned page 1 must remain in pool.");
+            }
+
+            if (!allPinnedPool.containsPage(2) || !allPinnedPool.isPinned(2)) {
+                throw new IllegalStateException(
+                        "Safety Test 3 failed: Pinned page 2 must remain in pool.");
+            }
+
+            if (allPinnedPool.containsPage(3)) {
+                throw new IllegalStateException(
+                        "Safety Test 3 failed: Page 3 must NOT be inserted when all pages pinned.");
+            }
+
+            /*
+             * Safety Test 4: Capacity-one pool.
+             * Capacity = 1. Insert 1, pin 1.
+             * Attempt insert 2 -> fails.
+             * Unpin 1 -> insert 2 -> succeeds, page 1 evicted.
+             */
+            BufferPool capOnePool = new BufferPool(1);
+            capOnePool.putPage(new Page(1, 5));
+            capOnePool.pinPage(1);
+
+            boolean capOneCaught = false;
+            try {
+                capOnePool.putPage(new Page(2, 5));
+            } catch (IllegalStateException e) {
+                capOneCaught = true;
+            }
+
+            if (!capOneCaught) {
+                throw new IllegalStateException(
+                        "Safety Test 4 failed: Inserting page 2 into capacity-1 pool with pinned page 1 must fail.");
+            }
+
+            if (capOnePool.size() != 1 || capOnePool.size() > capOnePool.getCapacity()) {
+                throw new IllegalStateException(
+                        "Safety Test 4 failed: Pool size must remain 1.");
+            }
+
+            if (!capOnePool.containsPage(1) || capOnePool.containsPage(2)) {
+                throw new IllegalStateException(
+                        "Safety Test 4 failed: Page 1 must remain and page 2 must not be present.");
+            }
+
+            capOnePool.releasePage(1);
+            capOnePool.putPage(new Page(2, 5));
+
+            if (capOnePool.size() != 1 || capOnePool.size() > capOnePool.getCapacity()) {
+                throw new IllegalStateException(
+                        "Safety Test 4 failed: Pool size must remain 1 after unpinning and insertion.");
+            }
+
+            if (capOnePool.containsPage(1) || !capOnePool.containsPage(2)) {
+                throw new IllegalStateException(
+                        "Safety Test 4 failed: Page 1 should be evicted and page 2 should be present.");
+            }
+
+            /*
+             * Safety Test 5: Duplicate page insertion.
+             * Capacity = 3.
+             * - Clean unpinned replacement updates entry without increasing size.
+             * - Same instance re-insertion preserves dirty state.
+             * - Different instance replacement of dirty page fails with IllegalStateException.
+             * - Replacement of pinned page fails with IllegalStateException.
+             */
+            BufferPool dupPool = new BufferPool(3);
+            Page dPage10 = new Page(10, 5);
+            dupPool.putPage(dPage10);
+
+            if (dupPool.size() != 1 || dupPool.size() > dupPool.getCapacity()) {
+                throw new IllegalStateException(
+                        "Safety Test 5 failed: Initial size should be 1.");
+            }
+
+            // Re-insert same instance
+            dupPool.putPage(dPage10);
+            if (dupPool.size() != 1 || dupPool.size() > dupPool.getCapacity()) {
+                throw new IllegalStateException(
+                        "Safety Test 5 failed: Re-inserting same instance must not increase size.");
+            }
+
+            // Re-insert different clean instance: updates entry
+            Page dPage10Clean = new Page(10, 8);
+            dupPool.putPage(dPage10Clean);
+            if (dupPool.size() != 1 || dupPool.getPage(10) != dPage10Clean) {
+                throw new IllegalStateException(
+                        "Safety Test 5 failed: Clean replacement should update cached entry.");
+            }
+
+            // Mark dirty
+            dupPool.markDirty(10);
+            if (!dupPool.isDirty(10)) {
+                throw new IllegalStateException(
+                        "Safety Test 5 failed: Page 10 must be dirty.");
+            }
+
+            // Re-insert same dirty instance: must preserve dirty state!
+            dupPool.putPage(dPage10Clean);
+            if (!dupPool.isDirty(10) || dupPool.size() != 1) {
+                throw new IllegalStateException(
+                        "Safety Test 5 failed: Re-putting same dirty page must preserve dirty flag.");
+            }
+
+            // Attempt to replace dirty page with a different instance: must fail!
+            Page dPage10Different = new Page(10, 12);
+            boolean dupDirtyBlocked = false;
+            try {
+                dupPool.putPage(dPage10Different);
+            } catch (IllegalStateException e) {
+                dupDirtyBlocked = true;
+            }
+
+            if (!dupDirtyBlocked) {
+                throw new IllegalStateException(
+                        "Safety Test 5 failed: Replacing dirty page with different instance must fail.");
+            }
+
+            if (dupPool.getPage(10) != dPage10Clean || !dupPool.isDirty(10) || dupPool.size() != 1) {
+                throw new IllegalStateException(
+                        "Safety Test 5 failed: Original dirty page must remain unmodified.");
+            }
+
+            // Pin page 10
+            dupPool.pinPage(10);
+
+            // Attempt to put page 10 while pinned: must fail!
+            boolean dupPinnedBlocked = false;
+            try {
+                dupPool.putPage(new Page(10, 15));
+            } catch (IllegalStateException e) {
+                dupPinnedBlocked = true;
+            }
+
+            if (!dupPinnedBlocked) {
+                throw new IllegalStateException(
+                        "Safety Test 5 failed: Overwriting pinned page must fail.");
+            }
+
+            if (dupPool.size() != 1 || !dupPool.isPinned(10)) {
+                throw new IllegalStateException(
+                        "Safety Test 5 failed: Pinned page 10 must remain pinned and size remain 1.");
+            }
+
+            /*
+             * Safety Test 6: Correct LRU victim selection.
+             * Capacity = 3. Insert 1, 2, 3.
+             * Access 1, 2. Recency: 3 (oldest), 1, 2.
+             * Insert 4 -> page 3 must be evicted!
+             */
+            BufferPool lruVictimPool = new BufferPool(3);
+            lruVictimPool.putPage(new Page(1, 5));
+            lruVictimPool.putPage(new Page(2, 5));
+            lruVictimPool.putPage(new Page(3, 5));
+            lruVictimPool.getPage(1);
+            lruVictimPool.getPage(2);
+
+            lruVictimPool.putPage(new Page(4, 5));
+
+            if (lruVictimPool.size() != 3 || lruVictimPool.size() > lruVictimPool.getCapacity()) {
+                throw new IllegalStateException(
+                        "Safety Test 6 failed: Pool size must be 3, got: " + lruVictimPool.size());
+            }
+
+            if (lruVictimPool.containsPage(3)) {
+                throw new IllegalStateException(
+                        "Safety Test 6 failed: LRU page 3 should have been evicted.");
+            }
+
+            if (!lruVictimPool.containsPage(1) || !lruVictimPool.containsPage(2) || !lruVictimPool.containsPage(4)) {
+                throw new IllegalStateException(
+                        "Safety Test 6 failed: Pages 1, 2, 4 must remain in the pool.");
+            }
+
+            /*
+             * Safety Test 7: Pinned LRU page is skipped.
+             * Capacity = 3. Insert 1, 2, 3.
+             * Recency: 1 (oldest), 2, 3.
+             * Pin page 1.
+             * Insert 4 -> page 1 is skipped, page 2 is evicted!
+             */
+            BufferPool lruSkipPool = new BufferPool(3);
+            lruSkipPool.putPage(new Page(1, 5));
+            lruSkipPool.putPage(new Page(2, 5));
+            lruSkipPool.putPage(new Page(3, 5));
+            lruSkipPool.pinPage(1);
+
+            lruSkipPool.putPage(new Page(4, 5));
+
+            if (lruSkipPool.size() != 3 || lruSkipPool.size() > lruSkipPool.getCapacity()) {
+                throw new IllegalStateException(
+                        "Safety Test 7 failed: Pool size must be 3, got: " + lruSkipPool.size());
+            }
+
+            if (!lruSkipPool.containsPage(1) || !lruSkipPool.isPinned(1)) {
+                throw new IllegalStateException(
+                        "Safety Test 7 failed: Pinned page 1 must NOT be evicted.");
+            }
+
+            if (lruSkipPool.containsPage(2)) {
+                throw new IllegalStateException(
+                        "Safety Test 7 failed: Page 2 should have been evicted as first unpinned candidate.");
+            }
+
+            if (!lruSkipPool.containsPage(3) || !lruSkipPool.containsPage(4)) {
+                throw new IllegalStateException(
+                        "Safety Test 7 failed: Pages 3 and 4 must remain in the pool.");
+            }
+
+            /*
+             * Safety Test 8, 9, 10: Storage-backed eviction safety tests.
+             * Using dedicated temporary files for isolation.
+             */
+            safetyPageFile = File.createTempFile("owldb_bp_safety_page_", ".data");
+            safetyPageFile.deleteOnExit();
+
+            safetyMetaFile = File.createTempFile("owldb_bp_safety_meta_", ".data");
+            safetyMetaFile.deleteOnExit();
+            safetyMetaFile.delete();
+
+            CountingPageStorage safetyStorage = new CountingPageStorage(safetyPageFile, safetyMetaFile);
+
+            Page sp1 = new Page(1, 5);
+            sp1.addRow(new Row(List.of("1", "Alpha", "10")));
+            safetyStorage.savePage(sp1);
+
+            Page sp2 = new Page(2, 5);
+            sp2.addRow(new Row(List.of("2", "Beta", "20")));
+            safetyStorage.savePage(sp2);
+
+            Page sp3 = new Page(3, 5);
+            sp3.addRow(new Row(List.of("3", "Gamma", "30")));
+            safetyStorage.savePage(sp3);
+
+            safetyStorage.savePageLocations();
+
+            /*
+             * Safety Test 8: Dirty LRU page is flushed before eviction.
+             * Capacity = 2. Pool loads 1, 2.
+             * Modify page 1, mark dirty. Page 1 is LRU.
+             * Load page 3 -> page 1 flushed, evicted, page 3 inserted.
+             */
+            BufferPool dirtyEvictPool = new BufferPool(2, safetyStorage);
+            Page dep1 = dirtyEvictPool.getPageFromStorage(1);
+            Page dep2 = dirtyEvictPool.getPageFromStorage(2);
+
+            dep1.addRow(new Row(List.of("11", "AlphaMod", "100")));
+            dirtyEvictPool.markDirty(1);
+
+            int savesBeforeSafeEvict = safetyStorage.saveCount;
+            dirtyEvictPool.getPageFromStorage(3);
+
+            if (safetyStorage.saveCount <= savesBeforeSafeEvict) {
+                throw new IllegalStateException(
+                        "Safety Test 8 failed: Dirty page 1 must be flushed before eviction.");
+            }
+
+            if (dirtyEvictPool.size() != 2 || dirtyEvictPool.size() > dirtyEvictPool.getCapacity()) {
+                throw new IllegalStateException(
+                        "Safety Test 8 failed: Pool size must be 2, got: " + dirtyEvictPool.size());
+            }
+
+            if (dirtyEvictPool.containsPage(1) || dirtyEvictPool.isDirty(1)) {
+                throw new IllegalStateException(
+                        "Safety Test 8 failed: Evicted page 1 must not remain in pool or dirty set.");
+            }
+
+            if (!dirtyEvictPool.containsPage(2) || !dirtyEvictPool.containsPage(3)) {
+                throw new IllegalStateException(
+                        "Safety Test 8 failed: Pages 2 and 3 must be in pool.");
+            }
+
+            Page reloadedP1 = safetyStorage.loadPage(1);
+            if (reloadedP1 == null || reloadedP1.getRows().size() != 2) {
+                throw new IllegalStateException(
+                        "Safety Test 8 failed: Flushed modifications must survive on disk.");
+            }
+
+            /*
+             * Safety Test 9: Failed dirty flush does not remove page.
+             * Set failSave = true.
+             * Modify page 2, mark dirty. Pool has 2 (dirty, LRU) and 3 (clean).
+             * Attempt to load page 1 -> write fails with IOException.
+             * Page 2 remains in pool and remains dirty. Page 1 is not inserted.
+             * Pool size remains 2 <= capacity.
+             */
+            dep2 = dirtyEvictPool.getPage(2);
+            dep2.addRow(new Row(List.of("22", "BetaMod", "200")));
+            dirtyEvictPool.markDirty(2);
+
+            // Make 2 LRU by accessing 3
+            dirtyEvictPool.getPage(3);
+
+            safetyStorage.failSave = true;
+            boolean failedFlushCaught = false;
+            try {
+                dirtyEvictPool.getPageFromStorage(1);
+            } catch (IOException e) {
+                failedFlushCaught = true;
+            }
+            safetyStorage.failSave = false;
+
+            if (!failedFlushCaught) {
+                throw new IllegalStateException(
+                        "Safety Test 9 failed: Expected IOException when disk write fails during eviction.");
+            }
+
+            if (dirtyEvictPool.size() != 2 || dirtyEvictPool.size() > dirtyEvictPool.getCapacity()) {
+                throw new IllegalStateException(
+                        "Safety Test 9 failed: Pool size must remain 2 after failed flush, got: "
+                                + dirtyEvictPool.size());
+            }
+
+            if (!dirtyEvictPool.containsPage(2) || !dirtyEvictPool.isDirty(2)) {
+                throw new IllegalStateException(
+                        "Safety Test 9 failed: Page 2 must remain in pool and remain DIRTY on write failure.");
+            }
+
+            if (dirtyEvictPool.containsPage(1)) {
+                throw new IllegalStateException(
+                        "Safety Test 9 failed: Page 1 must NOT be inserted when eviction fails.");
+            }
+
+            /*
+             * Safety Test 10: Mixed pinned/dirty/clean eviction test.
+             * Capacity = 3.
+             * Page 1: dirty, pinned.
+             * Page 2: clean, unpinned.
+             * Page 3: dirty, unpinned.
+             * Access order: 1 (oldest), 2, 3.
+             * Insert Page 4 -> Page 1 cannot be evicted (pinned), Page 2 evicted (clean, unpinned).
+             * Insert Page 5 -> Page 1 cannot be evicted (pinned), Page 3 flushed and evicted (dirty, unpinned).
+             */
+            BufferPool mixedPool = new BufferPool(3, safetyStorage);
+            Page mp1 = mixedPool.getPageFromStorage(1);
+            Page mp2 = mixedPool.getPageFromStorage(2);
+            Page mp3 = mixedPool.getPageFromStorage(3);
+
+            // Page 1: dirty, pinned
+            mp1.addRow(new Row(List.of("100", "MixedP1", "1000")));
+            mixedPool.markDirty(1);
+            mixedPool.pinPage(1);
+
+            // Page 2: clean, unpinned (no modification)
+
+            // Page 3: dirty, unpinned
+            mp3.addRow(new Row(List.of("300", "MixedP3", "3000")));
+            mixedPool.markDirty(3);
+
+            if (mixedPool.size() != 3 || mixedPool.size() > mixedPool.getCapacity()) {
+                throw new IllegalStateException(
+                        "Safety Test 10 failed: Initial pool size must be 3.");
+            }
+
+            // Insert Page 4: Page 1 is pinned (skipped); Page 2 is clean unpinned (evicted)
+            Page mp4 = new Page(4, 5);
+            mixedPool.putPage(mp4);
+
+            if (mixedPool.size() != 3 || mixedPool.size() > mixedPool.getCapacity()) {
+                throw new IllegalStateException(
+                        "Safety Test 10 failed: Size must remain 3 after inserting page 4, got: "
+                                + mixedPool.size());
+            }
+
+            if (!mixedPool.containsPage(1) || !mixedPool.isPinned(1) || !mixedPool.isDirty(1)) {
+                throw new IllegalStateException(
+                        "Safety Test 10 failed: Pinned dirty page 1 must remain in pool, pinned, and dirty.");
+            }
+
+            if (mixedPool.containsPage(2)) {
+                throw new IllegalStateException(
+                        "Safety Test 10 failed: Clean unpinned page 2 should have been evicted.");
+            }
+
+            if (!mixedPool.containsPage(3) || !mixedPool.isDirty(3)) {
+                throw new IllegalStateException(
+                        "Safety Test 10 failed: Page 3 must remain in pool and remain dirty.");
+            }
+
+            if (!mixedPool.containsPage(4)) {
+                throw new IllegalStateException(
+                        "Safety Test 10 failed: Page 4 must be in pool.");
+            }
+
+            // Insert Page 5: Page 1 is pinned (skipped); Page 3 is older than 4 and dirty -> flush then evict!
+            int savesBeforeP5 = safetyStorage.saveCount;
+            Page mp5 = new Page(5, 5);
+            mixedPool.putPage(mp5);
+
+            if (mixedPool.size() != 3 || mixedPool.size() > mixedPool.getCapacity()) {
+                throw new IllegalStateException(
+                        "Safety Test 10 failed: Size must remain 3 after inserting page 5, got: "
+                                + mixedPool.size());
+            }
+
+            if (safetyStorage.saveCount <= savesBeforeP5) {
+                throw new IllegalStateException(
+                        "Safety Test 10 failed: Dirty page 3 must be flushed before eviction.");
+            }
+
+            if (!mixedPool.containsPage(1) || !mixedPool.isPinned(1) || !mixedPool.isDirty(1)) {
+                throw new IllegalStateException(
+                        "Safety Test 10 failed: Pinned dirty page 1 must still remain in pool.");
+            }
+
+            if (mixedPool.containsPage(3) || mixedPool.isDirty(3)) {
+                throw new IllegalStateException(
+                        "Safety Test 10 failed: Page 3 should have been evicted and removed from dirty set.");
+            }
+
+            if (!mixedPool.containsPage(4) || !mixedPool.containsPage(5)) {
+                throw new IllegalStateException(
+                        "Safety Test 10 failed: Pages 4 and 5 must be in pool.");
+            }
+
+            // Verify disk modification for page 3
+            Page reloadedP3 = safetyStorage.loadPage(3);
+            if (reloadedP3 == null || reloadedP3.getRows().size() != 2) {
+                throw new IllegalStateException(
+                        "Safety Test 10 failed: Flushed modifications of page 3 must survive on disk.");
+            }
+
             System.out.println("BufferPool regression tests passed successfully.");
 
         } finally {
@@ -1785,6 +2296,16 @@ public class BufferPoolTest {
             if (lifecycleMetaFile != null && lifecycleMetaFile.exists()) {
 
                 lifecycleMetaFile.delete();
+            }
+
+            if (safetyPageFile != null && safetyPageFile.exists()) {
+
+                safetyPageFile.delete();
+            }
+
+            if (safetyMetaFile != null && safetyMetaFile.exists()) {
+
+                safetyMetaFile.delete();
             }
         }
     }

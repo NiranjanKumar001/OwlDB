@@ -189,6 +189,11 @@ public class BufferPool {
                     "Page cannot be null.");
         }
 
+        if (storage == null) {
+
+            storage = this.pageStorage;
+        }
+
         int pageId = page.getPageId();
 
         if (pages.containsKey(pageId)) {
@@ -197,6 +202,19 @@ public class BufferPool {
 
                 throw new IllegalStateException(
                         "Cannot replace pinned page " + pageId + ".");
+            }
+
+            if (isDirty(pageId)) {
+
+                if (page != pages.get(pageId)) {
+
+                    throw new IllegalStateException(
+                            "Cannot replace dirty page " + pageId + ": page has unsaved modifications.");
+                }
+
+                // Same instance already dirty: update recency, keep dirty
+                pages.put(pageId, page);
+                return;
             }
 
             pages.put(pageId, page);
@@ -246,6 +264,13 @@ public class BufferPool {
 
         pages.put(pageId, page);
         dirtyPages.remove(pageId);
+
+        if (pages.size() > capacity) {
+
+            throw new IllegalStateException(
+                    "Capacity invariant violated: buffer pool size " + pages.size()
+                            + " exceeds capacity " + capacity);
+        }
     }
 
     /*
