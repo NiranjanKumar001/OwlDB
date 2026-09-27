@@ -13,10 +13,17 @@ public class BufferPoolTest {
 
     public static void main(String[] args) {
 
-        run();
+        try {
+
+            run();
+
+        } catch (IOException e) {
+
+            throw new RuntimeException("BufferPoolTest failed with IOException: " + e.getMessage(), e);
+        }
     }
 
-    public static void run() {
+    public static void run() throws IOException {
 
         System.out.println("Running BufferPool regression tests...");
 
@@ -519,7 +526,6 @@ public class BufferPoolTest {
             /*
              * Storage Test 4: Missing disk page handled safely.
              */
-            int loadsBeforeMissing = countingStorage.loadCount;
             Page missing = storagePool.getPage(999, countingStorage);
 
             if (missing != null) {
@@ -551,8 +557,8 @@ public class BufferPoolTest {
              */
             BufferPool lruStoragePool = new BufferPool(2);
 
-            Page lruP1 = lruStoragePool.getPage(1, countingStorage);
-            Page lruP2 = lruStoragePool.getPage(2, countingStorage);
+            lruStoragePool.getPage(1, countingStorage);
+            lruStoragePool.getPage(2, countingStorage);
 
             if (lruStoragePool.size() != 2) {
 
@@ -654,11 +660,308 @@ public class BufferPoolTest {
                         "Storage Test 7 failed: Page 1 was not cached by getPageFromStorage.");
             }
 
+            /*
+             * ==================================================
+             * OWLET-068 Dirty Page Tracking & Write-Back Tests
+             * ==================================================
+             */
+
+            /*
+             * Dirty Test 1: New pages are clean.
+             */
+            BufferPool dirtyTestPool = new BufferPool(3, countingStorage);
+            Page d1 = dirtyTestPool.getPage(1, countingStorage);
+
+            if (dirtyTestPool.isDirty(1)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 1 failed: Newly loaded page must be clean.");
+            }
+
+            Page freshPage = new Page(100, 5);
+            dirtyTestPool.putPage(freshPage);
+
+            if (dirtyTestPool.isDirty(100)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 1 failed: Newly inserted in-memory page must be clean.");
+            }
+
+            /*
+             * Dirty Test 2: Mark dirty.
+             */
+            dirtyTestPool.markDirty(1);
+
+            if (!dirtyTestPool.isDirty(1)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 2 failed: Expected page 1 to be marked dirty.");
+            }
+
+            /*
+             * Dirty Test 3: Missing page cannot become dirty.
+             */
+            dirtyTestPool.markDirty(999);
+
+            if (dirtyTestPool.isDirty(999)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 3 failed: Non-cached page 999 must not be marked dirty.");
+            }
+
+            /*
+             * Dirty Test 4: Flush dirty page.
+             * Modify page 1, mark dirty, flushPage, verify clean and modification persisted.
+             */
+            d1.addRow(new Row(List.of("101", "AliceUpdated", "150")));
+            dirtyTestPool.markDirty(1);
+
+            int savesBeforeFlush = countingStorage.saveCount;
+            dirtyTestPool.flushPage(1);
+
+            if (countingStorage.saveCount != savesBeforeFlush + 1) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 4 failed: flushPage(1) did not invoke storage.savePage.");
+            }
+
+            if (dirtyTestPool.isDirty(1)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 4 failed: Page 1 should be clean after successful flushPage.");
+            }
+
+            // Verify modification on disk
+            Page reloadedFromDisk1 = countingStorage.loadPage(1);
+
+            if (reloadedFromDisk1 == null || reloadedFromDisk1.getRowCount() != 2) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 4 failed: Modification not found on disk after flushPage.");
+            }
+
+            if (!reloadedFromDisk1.getRows().get(1).getValues().equals(List.of("101", "AliceUpdated", "150"))) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 4 failed: Row content mismatch on disk reload.");
+            }
+
+            /*
+             * Dirty Test 5: Clean page does not require write.
+             */
+            int savesBeforeCleanFlush = countingStorage.saveCount;
+            dirtyTestPool.flushPage(1);
+
+            if (countingStorage.saveCount != savesBeforeCleanFlush) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 5 failed: Flushing a clean page must not cause disk writes.");
+            }
+
+            if (dirtyTestPool.isDirty(1)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 5 failed: Clean page should remain clean.");
+            }
+
+            /*
+             * Dirty Test 6: Dirty page eviction writes back to disk.
+             * Capacity = 2.
+             * Load 1, 2. Modify 1, mark dirty.
+             * Page 1 is LRU victim (loaded before 2).
+             * Load 3 -> page 1 is written to disk, evicted, page 3 inserted.
+             */
+            BufferPool evictPool = new BufferPool(2, countingStorage);
+            Page ep1 = evictPool.getPage(1, countingStorage);
+            Page ep2 = evictPool.getPage(2, countingStorage);
+
+            ep1.addRow(new Row(List.of("102", "AliceThirdRow", "175")));
+            evictPool.markDirty(1);
+
+            int savesBeforeEviction = countingStorage.saveCount;
+
+            // Loading page 3 forces eviction of LRU page 1
+            Page ep3 = evictPool.getPage(3, countingStorage);
+
+            if (countingStorage.saveCount != savesBeforeEviction + 1) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 6 failed: Evicting dirty page 1 should write it to disk.");
+            }
+
+            if (evictPool.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 6 failed: Page 1 should be evicted from BufferPool.");
+            }
+
+            if (evictPool.isDirty(1)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 6 failed: Evicted page 1 must not remain in dirtyPages.");
+            }
+
+            if (!evictPool.containsPage(2) || !evictPool.containsPage(3)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 6 failed: Pool should contain pages 2 and 3.");
+            }
+
+            // Verify page 1 on disk has the 3 rows
+            Page diskEp1 = countingStorage.loadPage(1);
+
+            if (diskEp1 == null || diskEp1.getRowCount() != 3) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 6 failed: Disk did not persist modification of evicted page 1.");
+            }
+
+            /*
+             * Dirty Test 7: Clean page eviction does not write to disk.
+             * Capacity = 2. Pool currently has 2 (clean) and 3 (clean).
+             * LRU is page 2.
+             * Load page 4.
+             */
+            int savesBeforeCleanEvict = countingStorage.saveCount;
+            Page ep4 = evictPool.getPage(4, countingStorage);
+
+            if (countingStorage.saveCount != savesBeforeCleanEvict) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 7 failed: Evicting clean page 2 must not cause disk writes.");
+            }
+
+            if (evictPool.containsPage(2)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 7 failed: Page 2 should be evicted.");
+            }
+
+            if (!evictPool.containsPage(3) || !evictPool.containsPage(4)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 7 failed: Pool should contain pages 3 and 4.");
+            }
+
+            /*
+             * Dirty Test 8: Flush all.
+             * Load multiple pages, modify multiple, mark dirty, flushAll().
+             * Verify all become clean and disk reflects modifications.
+             */
+            BufferPool flushAllPool = new BufferPool(5, countingStorage);
+            Page fa1 = flushAllPool.getPage(1, countingStorage);
+            Page fa2 = flushAllPool.getPage(2, countingStorage);
+            Page fa3 = flushAllPool.getPage(3, countingStorage);
+
+            fa2.addRow(new Row(List.of("201", "BobUpdated", "250")));
+            flushAllPool.markDirty(2);
+
+            fa3.addRow(new Row(List.of("301", "CharlieUpdated", "350")));
+            flushAllPool.markDirty(3);
+
+            if (!flushAllPool.isDirty(2) || !flushAllPool.isDirty(3) || flushAllPool.isDirty(1)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 8 failed: Initial dirty states before flushAll are incorrect.");
+            }
+
+            flushAllPool.flushAll();
+
+            if (flushAllPool.isDirty(1) || flushAllPool.isDirty(2) || flushAllPool.isDirty(3)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 8 failed: All pages should be clean after flushAll().");
+            }
+
+            Page diskFa2 = countingStorage.loadPage(2);
+            Page diskFa3 = countingStorage.loadPage(3);
+
+            if (diskFa2.getRowCount() != 2 || diskFa3.getRowCount() != 2) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 8 failed: Modifications were not persisted by flushAll().");
+            }
+
+            /*
+             * Dirty Test 9: Write failure preserves dirty page in cache and prevents eviction.
+             * Pool capacity = 2.
+             * Contains: Page 1 (DIRTY), Page 2 (CLEAN).
+             * LRU victim is Page 1.
+             * Set failSave = true.
+             * Try to insert Page 3.
+             * Writing Page 1 fails -> IOException thrown.
+             * Page 1 remains cached, remains dirty. Page 3 is NOT inserted.
+             */
+            BufferPool failPool = new BufferPool(2, countingStorage);
+            Page fp1 = failPool.getPage(1, countingStorage);
+            Page fp2 = failPool.getPage(2, countingStorage);
+
+            fp1.addRow(new Row(List.of("103", "AliceFailedRow", "999")));
+            failPool.markDirty(1);
+
+            countingStorage.failSave = true;
+
+            boolean caughtWriteFailure = false;
+
+            try {
+
+                failPool.getPage(3, countingStorage);
+
+            } catch (IOException expected) {
+
+                caughtWriteFailure = true;
+            }
+
+            countingStorage.failSave = false;
+
+            if (!caughtWriteFailure) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 9 failed: Expected IOException when disk write fails during eviction.");
+            }
+
+            if (!failPool.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 9 failed: Dirty page 1 must NOT be evicted on write failure.");
+            }
+
+            if (!failPool.isDirty(1)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 9 failed: Dirty page 1 must remain DIRTY on write failure.");
+            }
+
+            if (failPool.containsPage(3)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 9 failed: Page 3 must NOT be inserted when eviction fails.");
+            }
+
+            if (failPool.size() != 2) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 9 failed: Pool size should remain 2, got: " + failPool.size());
+            }
+
+            // Now with failSave = false, flushPage succeeds and clean eviction works
+            failPool.flushPage(1);
+
+            if (failPool.isDirty(1)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 9 failed: Page 1 should be clean after successful flush.");
+            }
+
+            failPool.getPage(3, countingStorage);
+
+            if (!failPool.containsPage(3) || failPool.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Dirty Test 9 failed: Clean eviction should succeed once flushed.");
+            }
+
             System.out.println("BufferPool regression tests passed successfully.");
-
-        } catch (IOException e) {
-
-            throw new RuntimeException("BufferPoolTest failed with IOException: " + e.getMessage(), e);
 
         } finally {
 
@@ -675,11 +978,15 @@ public class BufferPoolTest {
     }
 
     /*
-     * Test-only PageStorage extension to count disk reads.
+     * Test-only PageStorage extension to count reads/writes and simulate write failure.
      */
     static class CountingPageStorage extends PageStorage {
 
         int loadCount;
+
+        int saveCount;
+
+        boolean failSave;
 
         CountingPageStorage(
                 File pageFile,
@@ -687,6 +994,8 @@ public class BufferPoolTest {
 
             super(pageFile, locationFile);
             this.loadCount = 0;
+            this.saveCount = 0;
+            this.failSave = false;
         }
 
         @Override
@@ -695,6 +1004,19 @@ public class BufferPoolTest {
 
             loadCount++;
             return super.loadPage(pageId);
+        }
+
+        @Override
+        public long savePage(
+                Page page) throws IOException {
+
+            if (failSave) {
+
+                throw new IOException("Simulated disk write failure for testing.");
+            }
+
+            saveCount++;
+            return super.savePage(page);
         }
     }
 }

@@ -3,21 +3,25 @@ package storage;
 import page.Page;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 /*
- * In-memory buffer pool with Least Recently Used (LRU) eviction.
+ * In-memory buffer pool with Least Recently Used (LRU) eviction and dirty page tracking.
  *
  * For a database targeting 10M+ records, disk pages cannot all fit in RAM.
  * The buffer pool keeps frequently accessed pages in memory with a fixed capacity.
- * When the pool reaches capacity, the least recently used page is evicted
- * to make space for incoming pages, keeping hot pages in cache without unbounded memory growth.
  *
- * Connects to the storage layer (PageStorage) to load missing pages on demand.
+ * Dirty Page Tracking & Safe Write-Back:
+ * When a cached page is modified, it is marked dirty.
+ * Clean pages can be safely discarded during LRU eviction.
+ * Dirty pages MUST be written back to disk before being evicted.
+ * If disk write fails during eviction, the dirty page is NOT evicted,
+ * ensuring no modified data is lost.
  *
- * Uses LinkedHashMap with access-order to achieve average O(1) lookup, update,
- * insertion, and eviction.
+ * Uses LinkedHashMap with access-order for average O(1) page access and eviction.
  */
 public class BufferPool {
 
@@ -26,6 +30,8 @@ public class BufferPool {
     private PageStorage pageStorage;
 
     private Map<Integer, Page> pages;
+
+    private Set<Integer> dirtyPages;
 
     public BufferPool(
             int capacity) {
@@ -48,6 +54,8 @@ public class BufferPool {
         this.pageStorage = pageStorage;
 
         this.pages = new LinkedHashMap<>(capacity, 0.75f, true);
+
+        this.dirtyPages = new HashSet<>();
     }
 
     /*
@@ -86,7 +94,7 @@ public class BufferPool {
 
         if (loadedPage != null) {
 
-            putPage(loadedPage);
+            putPage(loadedPage, storage);
         }
 
         return loadedPage;
@@ -108,7 +116,14 @@ public class BufferPool {
     }
 
     public void putPage(
-            Page page) {
+            Page page) throws IOException {
+
+        putPage(page, this.pageStorage);
+    }
+
+    public void putPage(
+            Page page,
+            PageStorage storage) throws IOException {
 
         if (page == null) {
 
@@ -118,13 +133,154 @@ public class BufferPool {
 
         int pageId = page.getPageId();
 
-        if (!pages.containsKey(pageId) && pages.size() >= capacity) {
+        if (pages.containsKey(pageId)) {
 
-            int eldestPageId = pages.keySet().iterator().next();
+            pages.put(pageId, page);
+            dirtyPages.remove(pageId);
+            return;
+        }
+
+        if (pages.size() >= capacity) {
+
+            Map.Entry<Integer, Page> eldestEntry = pages.entrySet().iterator().next();
+            int eldestPageId = eldestEntry.getKey();
+            Page eldestPage = eldestEntry.getValue();
+
+            if (dirtyPages.contains(eldestPageId)) {
+
+                if (storage == null) {
+
+                    throw new IllegalStateException(
+                            "Cannot evict dirty page " + eldestPageId + ": no PageStorage configured.");
+                }
+
+                storage.savePage(eldestPage);
+                dirtyPages.remove(eldestPageId);
+            }
+
             pages.remove(eldestPageId);
         }
 
         pages.put(pageId, page);
+        dirtyPages.remove(pageId);
+    }
+
+    /*
+     * Mark a cached page as dirty.
+     * If the page is not in the buffer pool, does nothing.
+     */
+    public void markDirty(
+            int pageId) {
+
+        if (!pages.containsKey(pageId)) {
+
+            return;
+        }
+
+        dirtyPages.add(pageId);
+    }
+
+    /*
+     * Check if a cached page is dirty.
+     * Returns false if the page is clean or not present in the buffer pool.
+     */
+    public boolean isDirty(
+            int pageId) {
+
+        return pages.containsKey(pageId) && dirtyPages.contains(pageId);
+    }
+
+    /*
+     * Flush a single page to the configured PageStorage if it is dirty.
+     * If clean or not cached, no disk write occurs.
+     */
+    public void flushPage(
+            int pageId) throws IOException {
+
+        if (this.pageStorage == null) {
+
+            throw new IllegalStateException(
+                    "No PageStorage configured for this BufferPool.");
+        }
+
+        flushPage(pageId, this.pageStorage);
+    }
+
+    /*
+     * Flush a single page to the specified PageStorage if it is dirty.
+     * If clean or not cached, no disk write occurs.
+     */
+    public void flushPage(
+            int pageId,
+            PageStorage storage) throws IOException {
+
+        if (storage == null) {
+
+            throw new IllegalArgumentException(
+                    "PageStorage cannot be null.");
+        }
+
+        if (!dirtyPages.contains(pageId)) {
+
+            return;
+        }
+
+        Page page = null;
+
+        for (Map.Entry<Integer, Page> entry : pages.entrySet()) {
+
+            if (entry.getKey().equals(pageId)) {
+
+                page = entry.getValue();
+                break;
+            }
+        }
+
+        if (page != null) {
+
+            storage.savePage(page);
+            dirtyPages.remove(pageId);
+        }
+    }
+
+    /*
+     * Flush all dirty pages to the configured PageStorage and mark them clean.
+     * Pages remain in the BufferPool.
+     */
+    public void flushAll() throws IOException {
+
+        if (this.pageStorage == null) {
+
+            throw new IllegalStateException(
+                    "No PageStorage configured for this BufferPool.");
+        }
+
+        flushAll(this.pageStorage);
+    }
+
+    /*
+     * Flush all dirty pages to the specified PageStorage and mark them clean.
+     * Pages remain in the BufferPool.
+     */
+    public void flushAll(
+            PageStorage storage) throws IOException {
+
+        if (storage == null) {
+
+            throw new IllegalArgumentException(
+                    "PageStorage cannot be null.");
+        }
+
+        for (Map.Entry<Integer, Page> entry : pages.entrySet()) {
+
+            int pageId = entry.getKey();
+
+            if (dirtyPages.contains(pageId)) {
+
+                storage.savePage(entry.getValue());
+                dirtyPages.remove(pageId);
+            }
+        }
     }
 
     public boolean containsPage(
@@ -157,5 +313,6 @@ public class BufferPool {
     public void clear() {
 
         pages.clear();
+        dirtyPages.clear();
     }
 }
