@@ -4,8 +4,12 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -70,10 +74,16 @@ public class PageLocationMap {
     }
 
     /*
-     * Save mappings to a metadata file.
+     * Save mappings to a metadata file using a temporary file and atomic replacement.
      */
     public void save(
             String filePath) throws IOException {
+
+        if (filePath == null) {
+
+            throw new IllegalArgumentException(
+                    "File path cannot be null.");
+        }
 
         save(new File(filePath));
     }
@@ -81,17 +91,61 @@ public class PageLocationMap {
     public void save(
             File file) throws IOException {
 
-        if (file.getParentFile() != null && !file.getParentFile().exists()) {
+        if (file == null) {
 
-            file.getParentFile().mkdirs();
+            throw new IllegalArgumentException(
+                    "File cannot be null.");
         }
 
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+        File parentDir = file.getParentFile();
 
-            for (Map.Entry<Integer, Long> entry : locations.entrySet()) {
+        if (parentDir != null && !parentDir.exists()) {
 
-                writer.write(entry.getKey() + "|" + entry.getValue());
-                writer.newLine();
+            parentDir.mkdirs();
+        }
+
+        File tempFile = new File(file.getPath() + ".tmp");
+        Path tempPath = tempFile.toPath();
+        Path targetPath = file.toPath();
+
+        boolean writeSuccessful = false;
+
+        try {
+
+            try (BufferedWriter writer = Files.newBufferedWriter(
+                    tempPath,
+                    StandardCharsets.UTF_8)) {
+
+                for (Map.Entry<Integer, Long> entry : locations.entrySet()) {
+
+                    writer.write(entry.getKey() + "|" + entry.getValue());
+                    writer.newLine();
+                }
+            }
+
+            try {
+
+                Files.move(
+                        tempPath,
+                        targetPath,
+                        StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING);
+
+            } catch (AtomicMoveNotSupportedException e) {
+
+                Files.move(
+                        tempPath,
+                        targetPath,
+                        StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            writeSuccessful = true;
+
+        } finally {
+
+            if (!writeSuccessful && tempFile.exists()) {
+
+                tempFile.delete();
             }
         }
     }

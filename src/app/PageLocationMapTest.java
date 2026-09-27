@@ -10,6 +10,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
 
 public class PageLocationMapTest {
@@ -24,7 +25,7 @@ public class PageLocationMapTest {
         System.out.println("Running PageLocationMap regression tests...");
 
         /*
-         * Test 1 — basic mapping:
+         * Test 1 — basic mapping in memory:
          * 1 -> 0
          * 2 -> 128
          * 3 -> 256
@@ -66,73 +67,180 @@ public class PageLocationMapTest {
                     "Expected map size 3, got: " + map1.size());
         }
 
+        File tempDir = null;
         File tempMetaFile = null;
         File tempMalformedFile = null;
         File tempPageFile = null;
+        File tempReadOnlyDir = null;
 
         try {
 
-            tempMetaFile = File.createTempFile("owldb_meta_test_", ".data");
-            tempMetaFile.deleteOnExit();
-
             /*
-             * Test 2 — save:
-             * Save map1 to temporary metadata file.
+             * Test 2 — normal save in temporary directory:
+             * 1. Create a temporary directory.
+             * 2. Create a PageLocationMap.
+             * 3. Add mappings.
+             * 4. Save.
+             * 5. Load using a NEW PageLocationMap.
+             * 6. Verify all mappings.
              */
-            map1.save(tempMetaFile);
+            tempDir = Files.createTempDirectory("owldb_meta_dir_").toFile();
+            tempMetaFile = new File(tempDir, "page_locations.data");
 
-            if (tempMetaFile.length() == 0) {
+            PageLocationMap saveMap = new PageLocationMap();
+            saveMap.put(10, 1000L);
+            saveMap.put(20, 2000L);
+            saveMap.put(30, 3000L);
+
+            saveMap.save(tempMetaFile);
+
+            if (!tempMetaFile.exists() || tempMetaFile.length() == 0) {
 
                 throw new IllegalStateException(
-                        "Metadata file was empty after save.");
+                        "Metadata file missing or empty after save.");
             }
 
-            /*
-             * Test 3 — load:
-             * Create a NEW PageLocationMap instance and load the file.
-             */
-            PageLocationMap map2 = new PageLocationMap();
-            map2.load(tempMetaFile);
+            PageLocationMap loadMap = new PageLocationMap();
+            loadMap.load(tempMetaFile);
 
-            if (map2.size() != 3) {
+            if (loadMap.size() != 3) {
 
                 throw new IllegalStateException(
-                        "Expected loaded map size 3, got: " + map2.size());
+                        "Expected loaded map size 3, got: " + loadMap.size());
             }
 
-            if (map2.get(1) != 0L || map2.get(2) != 128L || map2.get(3) != 256L) {
+            if (loadMap.get(10) != 1000L || loadMap.get(20) != 2000L || loadMap.get(30) != 3000L) {
 
                 throw new IllegalStateException(
                         "Loaded map contains incorrect offset values.");
             }
 
             /*
-             * Test 4 — update:
-             * Change 2 -> 128 to 2 -> 512, save again, load into another new map.
+             * Test 3 — replacement:
+             * 1. Save: 1 -> 100, 2 -> 200
+             * 2. Change: 2 -> 500
+             * 3. Save again.
+             * 4. Load using a NEW PageLocationMap.
+             * 5. Verify: 1 -> 100, 2 -> 500
              */
-            map1.put(2, 512L);
-            map1.save(tempMetaFile);
+            File replaceFile = new File(tempDir, "replace_test.data");
+            PageLocationMap replaceMap = new PageLocationMap();
+            replaceMap.put(1, 100L);
+            replaceMap.put(2, 200L);
+            replaceMap.save(replaceFile);
 
-            PageLocationMap map3 = new PageLocationMap();
-            map3.load(tempMetaFile);
+            replaceMap.put(2, 500L);
+            replaceMap.save(replaceFile);
 
-            if (map3.size() != 3) {
+            PageLocationMap reloadedReplaceMap = new PageLocationMap();
+            reloadedReplaceMap.load(replaceFile);
+
+            if (reloadedReplaceMap.size() != 2) {
 
                 throw new IllegalStateException(
-                        "Expected updated map size 3, got: " + map3.size());
+                        "Expected replaced map size 2, got: " + reloadedReplaceMap.size());
             }
 
-            if (map3.get(2) != 512L) {
+            if (reloadedReplaceMap.get(1) != 100L) {
 
                 throw new IllegalStateException(
-                        "Expected updated offset 512 for page 2, got: " + map3.get(2));
+                        "Expected offset 100 for page 1, got: " + reloadedReplaceMap.get(1));
+            }
+
+            if (reloadedReplaceMap.get(2) != 500L) {
+
+                throw new IllegalStateException(
+                        "Expected offset 500 for page 2, got: " + reloadedReplaceMap.get(2));
             }
 
             /*
-             * Test 5 — missing file:
+             * Test 4 — no temporary file after successful save:
+             * After save(), verify that the temporary metadata file does not remain.
+             */
+            File expectedTempFile = new File(replaceFile.getPath() + ".tmp");
+
+            if (expectedTempFile.exists()) {
+
+                throw new IllegalStateException(
+                        "Temporary metadata file was not removed after save: " + expectedTempFile);
+            }
+
+            File[] dirFiles = tempDir.listFiles();
+
+            if (dirFiles != null) {
+
+                for (File f : dirFiles) {
+
+                    if (f.getName().endsWith(".tmp")) {
+
+                        throw new IllegalStateException(
+                                "Found leftover temporary file in metadata directory: " + f.getName());
+                    }
+                }
+            }
+
+            /*
+             * Test 5 — old metadata remains valid until replacement:
+             * 1. Save valid metadata in a directory.
+             * 2. Make directory read-only so write fails before replacement.
+             * 3. Verify previous metadata file can still be loaded intact.
+             */
+            tempReadOnlyDir = Files.createTempDirectory("owldb_meta_ro_dir_").toFile();
+            File roMetaFile = new File(tempReadOnlyDir, "ro_metadata.data");
+
+            PageLocationMap initialRoMap = new PageLocationMap();
+            initialRoMap.put(1, 100L);
+            initialRoMap.put(2, 200L);
+            initialRoMap.save(roMetaFile);
+
+            boolean madeReadOnly = tempReadOnlyDir.setWritable(false);
+
+            if (madeReadOnly) {
+
+                PageLocationMap failingUpdateMap = new PageLocationMap();
+                failingUpdateMap.put(1, 999L);
+                failingUpdateMap.put(2, 888L);
+
+                boolean caughtException = false;
+
+                try {
+
+                    failingUpdateMap.save(roMetaFile);
+
+                } catch (IOException expected) {
+
+                    caughtException = true;
+                }
+
+                tempReadOnlyDir.setWritable(true);
+
+                if (!caughtException) {
+
+                    throw new IllegalStateException(
+                            "Expected save() to fail on read-only directory.");
+                }
+
+                PageLocationMap intactMap = new PageLocationMap();
+                intactMap.load(roMetaFile);
+
+                if (intactMap.size() != 2) {
+
+                    throw new IllegalStateException(
+                            "Expected original metadata to remain intact with size 2, got: " + intactMap.size());
+                }
+
+                if (intactMap.get(1) != 100L || intactMap.get(2) != 200L) {
+
+                    throw new IllegalStateException(
+                            "Original metadata values were corrupted after failed save.");
+                }
+            }
+
+            /*
+             * Test 6 — missing file:
              * Load a nonexistent file and verify map remains empty.
              */
-            File nonExistentFile = new File("non_existent_metadata_file_test.tmp");
+            File nonExistentFile = new File(tempDir, "non_existent_metadata_file.data");
             PageLocationMap mapEmpty = new PageLocationMap();
             mapEmpty.load(nonExistentFile);
 
@@ -143,7 +251,7 @@ public class PageLocationMapTest {
             }
 
             /*
-             * Test 6 — malformed metadata:
+             * Test 7 — malformed metadata:
              * Create a file with an invalid line and verify load fails clearly.
              */
             tempMalformedFile = File.createTempFile("owldb_malformed_test_", ".data");
@@ -176,7 +284,7 @@ public class PageLocationMapTest {
             }
 
             /*
-             * Integration Test:
+             * Test 8 — integration test with PageStorage:
              * PageStorage -> PageLocationMap -> save metadata
              * -> NEW PageLocationMap -> load metadata -> PageFileManager -> original Page
              */
@@ -184,7 +292,7 @@ public class PageLocationMapTest {
             tempPageFile.deleteOnExit();
 
             PageFileManager pfm = new PageFileManager(tempPageFile);
-            PageStorage storage = new PageStorage(pfm);
+            PageStorage storage = new PageStorage(pfm, tempMetaFile);
 
             Page originalPage = new Page(88, 3);
             Row row1 = new Row(List.of("1001", "ItemA", "10.50"));
@@ -195,7 +303,7 @@ public class PageLocationMapTest {
             storage.savePage(originalPage);
 
             // Save the PageStorage's PageLocationMap metadata
-            storage.getPageLocationMap().save(tempMetaFile);
+            storage.savePageLocations();
 
             // Create a completely new PageLocationMap and load metadata
             PageLocationMap restoredMap = new PageLocationMap();
@@ -239,11 +347,6 @@ public class PageLocationMapTest {
 
         } finally {
 
-            if (tempMetaFile != null && tempMetaFile.exists()) {
-
-                tempMetaFile.delete();
-            }
-
             if (tempMalformedFile != null && tempMalformedFile.exists()) {
 
                 tempMalformedFile.delete();
@@ -253,6 +356,43 @@ public class PageLocationMapTest {
 
                 tempPageFile.delete();
             }
+
+            if (tempReadOnlyDir != null && tempReadOnlyDir.exists()) {
+
+                tempReadOnlyDir.setWritable(true);
+                deleteDirectory(tempReadOnlyDir);
+            }
+
+            if (tempDir != null && tempDir.exists()) {
+
+                deleteDirectory(tempDir);
+            }
+        }
+    }
+
+    private static void deleteDirectory(
+            File directory) {
+
+        if (directory != null && directory.exists()) {
+
+            File[] files = directory.listFiles();
+
+            if (files != null) {
+
+                for (File file : files) {
+
+                    if (file.isDirectory()) {
+
+                        deleteDirectory(file);
+
+                    } else {
+
+                        file.delete();
+                    }
+                }
+            }
+
+            directory.delete();
         }
     }
 }
