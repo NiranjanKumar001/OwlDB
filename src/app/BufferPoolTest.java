@@ -1,7 +1,13 @@
 package app;
 
 import page.Page;
+import row.Row;
 import storage.BufferPool;
+import storage.PageStorage;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
 
 public class BufferPoolTest {
 
@@ -406,6 +412,289 @@ public class BufferPoolTest {
                     "Boundary Test failed: Page 1001 should exist in large pool.");
         }
 
-        System.out.println("BufferPool regression tests passed successfully.");
+        /*
+         * ==================================================
+         * OWLET-067 Storage Integration Tests
+         * ==================================================
+         */
+        File tempPageFile = null;
+        File tempMetaFile = null;
+
+        try {
+
+            tempPageFile = File.createTempFile("owldb_bp_storage_", ".data");
+            tempPageFile.deleteOnExit();
+
+            tempMetaFile = File.createTempFile("owldb_bp_meta_", ".data");
+            tempMetaFile.deleteOnExit();
+            tempMetaFile.delete();
+
+            CountingPageStorage countingStorage = new CountingPageStorage(tempPageFile, tempMetaFile);
+
+            // Persist pages 1, 2, 3, 4, 5 to disk storage
+            Page p1 = new Page(1, 3);
+            p1.addRow(new Row(List.of("1", "Alice", "100")));
+            countingStorage.savePage(p1);
+
+            Page p2 = new Page(2, 3);
+            p2.addRow(new Row(List.of("2", "Bob", "200")));
+            countingStorage.savePage(p2);
+
+            Page p3 = new Page(3, 3);
+            p3.addRow(new Row(List.of("3", "Charlie", "300")));
+            countingStorage.savePage(p3);
+
+            Page p4 = new Page(4, 3);
+            p4.addRow(new Row(List.of("4", "David", "400")));
+            countingStorage.savePage(p4);
+
+            Page p5 = new Page(5, 3);
+            p5.addRow(new Row(List.of("5", "Eve", "500")));
+            countingStorage.savePage(p5);
+
+            countingStorage.savePageLocations();
+
+            /*
+             * Storage Test 1 & 2: Cache miss loads page from storage and inserts into BufferPool.
+             */
+            BufferPool storagePool = new BufferPool(3);
+
+            if (storagePool.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Storage Test 1 failed: Initial pool should not contain page 1.");
+            }
+
+            int initialLoads = countingStorage.loadCount;
+            Page loadedP1 = storagePool.getPage(1, countingStorage);
+
+            if (loadedP1 == null || loadedP1.getPageId() != 1) {
+
+                throw new IllegalStateException(
+                        "Storage Test 1 failed: Failed to load page 1 from storage.");
+            }
+
+            if (countingStorage.loadCount != initialLoads + 1) {
+
+                throw new IllegalStateException(
+                        "Storage Test 1 failed: Expected disk load on cache miss.");
+            }
+
+            if (!storagePool.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Storage Test 2 failed: Loaded page 1 was not inserted into BufferPool.");
+            }
+
+            if (storagePool.size() != 1) {
+
+                throw new IllegalStateException(
+                        "Storage Test 2 failed: Expected pool size 1, got: " + storagePool.size());
+            }
+
+            if (!loadedP1.getRows().get(0).getValues().equals(p1.getRows().get(0).getValues())) {
+
+                throw new IllegalStateException(
+                        "Storage Test 2 failed: Loaded row content does not match persisted page.");
+            }
+
+            /*
+             * Storage Test 3: Cache hit returns cached page without secondary disk load.
+             */
+            int loadsBeforeHit = countingStorage.loadCount;
+            Page hitP1 = storagePool.getPage(1, countingStorage);
+
+            if (hitP1 != loadedP1) {
+
+                throw new IllegalStateException(
+                        "Storage Test 3 failed: Cache hit should return identical cached Page instance.");
+            }
+
+            if (countingStorage.loadCount != loadsBeforeHit) {
+
+                throw new IllegalStateException(
+                        "Storage Test 3 failed: Cache hit must NOT cause another disk read.");
+            }
+
+            /*
+             * Storage Test 4: Missing disk page handled safely.
+             */
+            int loadsBeforeMissing = countingStorage.loadCount;
+            Page missing = storagePool.getPage(999, countingStorage);
+
+            if (missing != null) {
+
+                throw new IllegalStateException(
+                        "Storage Test 4 failed: Non-existent page should return null.");
+            }
+
+            if (storagePool.containsPage(999)) {
+
+                throw new IllegalStateException(
+                        "Storage Test 4 failed: Missing page must not be stored in BufferPool.");
+            }
+
+            if (storagePool.size() != 1) {
+
+                throw new IllegalStateException(
+                        "Storage Test 4 failed: Pool size should remain 1, got: " + storagePool.size());
+            }
+
+            /*
+             * Storage Test 5: Disk-loaded pages participate in LRU eviction.
+             * Pool capacity = 2.
+             * Load 1 -> cached: [1].
+             * Load 2 -> cached: [1, 2].
+             * Access 1 again -> cache hit, LRU recency becomes: [2, 1].
+             * Load 3 -> cache miss, loads 3.
+             * Page 2 is least recently used, so page 2 must be evicted!
+             */
+            BufferPool lruStoragePool = new BufferPool(2);
+
+            Page lruP1 = lruStoragePool.getPage(1, countingStorage);
+            Page lruP2 = lruStoragePool.getPage(2, countingStorage);
+
+            if (lruStoragePool.size() != 2) {
+
+                throw new IllegalStateException(
+                        "Storage Test 5 failed: Expected size 2, got: " + lruStoragePool.size());
+            }
+
+            // Access page 1 to make it most recently used
+            lruStoragePool.getPage(1, countingStorage);
+
+            // Load page 3 from disk
+            Page lruP3 = lruStoragePool.getPage(3, countingStorage);
+
+            if (lruP3 == null || lruP3.getPageId() != 3) {
+
+                throw new IllegalStateException(
+                        "Storage Test 5 failed: Page 3 failed to load.");
+            }
+
+            if (lruStoragePool.size() != 2) {
+
+                throw new IllegalStateException(
+                        "Storage Test 5 failed: Pool size must remain 2, got: " + lruStoragePool.size());
+            }
+
+            if (!lruStoragePool.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Storage Test 5 failed: Page 1 was recently accessed and should NOT be evicted.");
+            }
+
+            if (lruStoragePool.containsPage(2)) {
+
+                throw new IllegalStateException(
+                        "Storage Test 5 failed: Page 2 was least recently used and MUST be evicted.");
+            }
+
+            if (!lruStoragePool.containsPage(3)) {
+
+                throw new IllegalStateException(
+                        "Storage Test 5 failed: Page 3 must exist in pool.");
+            }
+
+            /*
+             * Storage Test 6: BufferPool capacity remains bounded with multiple disk loads.
+             * Pool capacity = 2. Load 1, 2, 3, 4, 5 in sequence.
+             * Size must remain 2 at every step once filled.
+             */
+            BufferPool boundedPool = new BufferPool(2);
+
+            for (int i = 1; i <= 5; i++) {
+
+                boundedPool.getPage(i, countingStorage);
+
+                int expectedSize = Math.min(i, 2);
+
+                if (boundedPool.size() != expectedSize) {
+
+                    throw new IllegalStateException(
+                            "Storage Test 6 failed: Expected pool size " + expectedSize + " at step " + i
+                                    + ", got: " + boundedPool.size());
+                }
+            }
+
+            if (!boundedPool.containsPage(4) || !boundedPool.containsPage(5)) {
+
+                throw new IllegalStateException(
+                        "Storage Test 6 failed: Pages 4 and 5 must be in pool after loading 1..5.");
+            }
+
+            if (boundedPool.containsPage(1) || boundedPool.containsPage(2) || boundedPool.containsPage(3)) {
+
+                throw new IllegalStateException(
+                        "Storage Test 6 failed: Pages 1, 2, and 3 should have been evicted.");
+            }
+
+            /*
+             * Storage Test 7: Pre-configured PageStorage in BufferPool constructor.
+             */
+            BufferPool preconfiguredPool = new BufferPool(2, countingStorage);
+
+            if (preconfiguredPool.getPageStorage() != countingStorage) {
+
+                throw new IllegalStateException(
+                        "Storage Test 7 failed: Configured PageStorage mismatch.");
+            }
+
+            Page preP1 = preconfiguredPool.getPageFromStorage(1);
+
+            if (preP1 == null || preP1.getPageId() != 1) {
+
+                throw new IllegalStateException(
+                        "Storage Test 7 failed: getPageFromStorage(1) failed.");
+            }
+
+            if (!preconfiguredPool.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Storage Test 7 failed: Page 1 was not cached by getPageFromStorage.");
+            }
+
+            System.out.println("BufferPool regression tests passed successfully.");
+
+        } catch (IOException e) {
+
+            throw new RuntimeException("BufferPoolTest failed with IOException: " + e.getMessage(), e);
+
+        } finally {
+
+            if (tempPageFile != null && tempPageFile.exists()) {
+
+                tempPageFile.delete();
+            }
+
+            if (tempMetaFile != null && tempMetaFile.exists()) {
+
+                tempMetaFile.delete();
+            }
+        }
+    }
+
+    /*
+     * Test-only PageStorage extension to count disk reads.
+     */
+    static class CountingPageStorage extends PageStorage {
+
+        int loadCount;
+
+        CountingPageStorage(
+                File pageFile,
+                File locationFile) throws IOException {
+
+            super(pageFile, locationFile);
+            this.loadCount = 0;
+        }
+
+        @Override
+        public Page loadPage(
+                int pageId) throws IOException {
+
+            loadCount++;
+            return super.loadPage(pageId);
+        }
     }
 }
