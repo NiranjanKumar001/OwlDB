@@ -1,6 +1,7 @@
 package page;
 
 import row.Row;
+import storage.PageLocationMap;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,10 +17,23 @@ public class PageManager {
 
         private int nextPageId;
 
+        private PageLocationMap pageLocationMap;
+
         public PageManager(
                         int pageSize) {
 
+                this(
+                                pageSize,
+                                new PageLocationMap());
+        }
+
+        public PageManager(
+                        int pageSize,
+                        PageLocationMap pageLocationMap) {
+
                 this.pageSize = pageSize;
+
+                this.pageLocationMap = pageLocationMap;
 
                 this.pages = new ArrayList<>();
 
@@ -140,6 +154,37 @@ public class PageManager {
 
                 return page.getRows()
                                 .get(slotId);
+        }
+
+        /*
+         * Get the page location map.
+         */
+        public PageLocationMap getPageLocationMap() {
+
+                return pageLocationMap;
+        }
+
+        /*
+         * Record the persisted disk offset of a page.
+         */
+        public void recordPageLocation(
+                        int pageId,
+                        long offset) {
+
+                pageLocationMap.put(
+                                pageId,
+                                offset);
+        }
+
+        /*
+         * Get the persisted disk offset of a page.
+         * Returns null if the page has not been persisted.
+         */
+        public Long getPageOffset(
+                        int pageId) {
+
+                return pageLocationMap.get(
+                                pageId);
         }
 
         public void printPages() {
