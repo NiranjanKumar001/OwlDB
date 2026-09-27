@@ -16,9 +16,11 @@ import java.util.Set;
  * For a database targeting 10M+ records, disk pages cannot all fit in RAM.
  * The buffer pool keeps frequently accessed pages in memory with a fixed capacity.
  *
- * Page Pinning:
+ * Page Pinning & Safe Lifecycle:
  * Pages currently in use by active operations are pinned (pin count > 0).
  * Pinned pages MUST NOT be evicted.
+ * Callers use getPageAndPin(pageId) to immediately acquire and pin a page,
+ * and releasePage(pageId) when finished using it.
  * Eviction selects the least recently used UNPINNED page.
  * If all cached pages are pinned, eviction fails safely.
  *
@@ -126,6 +128,51 @@ public class BufferPool {
         return getPage(pageId, this.pageStorage);
     }
 
+    /*
+     * Retrieve a page and immediately pin it to protect it from eviction.
+     * Uses pre-configured PageStorage if available, or memory cache.
+     * If the page does not exist, returns null without creating pin metadata.
+     */
+    public Page getPageAndPin(
+            int pageId) throws IOException {
+
+        Page page;
+
+        if (this.pageStorage != null) {
+
+            page = getPage(pageId, this.pageStorage);
+
+        } else {
+
+            page = getPage(pageId);
+        }
+
+        if (page != null) {
+
+            pinPage(pageId);
+        }
+
+        return page;
+    }
+
+    /*
+     * Retrieve a page and immediately pin it using the specified PageStorage.
+     * If the page does not exist, returns null without creating pin metadata.
+     */
+    public Page getPageAndPin(
+            int pageId,
+            PageStorage storage) throws IOException {
+
+        Page page = getPage(pageId, storage);
+
+        if (page != null) {
+
+            pinPage(pageId);
+        }
+
+        return page;
+    }
+
     public void putPage(
             Page page) throws IOException {
 
@@ -145,6 +192,12 @@ public class BufferPool {
         int pageId = page.getPageId();
 
         if (pages.containsKey(pageId)) {
+
+            if (isPinned(pageId)) {
+
+                throw new IllegalStateException(
+                        "Cannot replace pinned page " + pageId + ".");
+            }
 
             pages.put(pageId, page);
             dirtyPages.remove(pageId);
@@ -241,6 +294,19 @@ public class BufferPool {
 
             pinCounts.put(pageId, next);
         }
+    }
+
+    /*
+     * Safely release a previously pinned page, decrementing its pin count.
+     * Counterpart to getPageAndPin. When pin count reaches zero, the page
+     * becomes eligible for eviction.
+     * Does NOT automatically flush dirty pages; write-back occurs during
+     * explicit flush or eviction.
+     */
+    public void releasePage(
+            int pageId) {
+
+        unpinPage(pageId);
     }
 
     /*

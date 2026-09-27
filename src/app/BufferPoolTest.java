@@ -426,6 +426,8 @@ public class BufferPoolTest {
          */
         File tempPageFile = null;
         File tempMetaFile = null;
+        File lifecyclePageFile = null;
+        File lifecycleMetaFile = null;
 
         try {
 
@@ -1328,6 +1330,439 @@ public class BufferPoolTest {
                         "Pin Test 11 failed: clear() must remove all pin metadata.");
             }
 
+            /*
+             * ==================================================
+             * OWLET-070 Safe Page Lifecycle API Tests
+             * ==================================================
+             */
+
+            /*
+             * Lifecycle Test 1: getPageAndPin, LRU eviction protection, and releasePage.
+             * 1. Create a BufferPool with capacity = 2.
+             * 2. Load page 1.
+             * 3. Call getPageAndPin(1).
+             * 4. Verify getPinCount(1) == 1.
+             * 5. Make page 1 the LRU candidate by accessing/loading page 2.
+             * 6. Fill the BufferPool (contains 1 and 2).
+             * 7. Cause an eviction (put page 3).
+             * 8. Verify page 1 is NOT evicted (unpinned page 2 was evicted instead).
+             * 9. Call releasePage(1).
+             * 10. Verify getPinCount(1) == 0.
+             * 11. Cause another eviction (put page 4).
+             * 12. Verify page 1 can now be evicted according to LRU.
+             */
+            BufferPool lcPool1 = new BufferPool(2);
+            lcPool1.putPage(new Page(1, 5));
+            Page lcPage1 = lcPool1.getPageAndPin(1);
+
+            if (lcPage1 == null || lcPage1.getPageId() != 1) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 1 failed: getPageAndPin(1) should return page 1.");
+            }
+
+            if (lcPool1.getPinCount(1) != 1 || !lcPool1.isPinned(1)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 1 failed: getPinCount(1) must be 1 after getPageAndPin(1).");
+            }
+
+            // Put page 2 so pool is full and page 1 is the oldest / LRU candidate
+            lcPool1.putPage(new Page(2, 5));
+
+            // Cause eviction by putting page 3
+            lcPool1.putPage(new Page(3, 5));
+
+            // Page 1 is pinned, so page 2 must be evicted instead
+            if (!lcPool1.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 1 failed: Pinned page 1 must NOT be evicted.");
+            }
+
+            if (lcPool1.containsPage(2)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 1 failed: Unpinned page 2 should have been evicted.");
+            }
+
+            if (!lcPool1.containsPage(3)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 1 failed: Page 3 must be present in pool.");
+            }
+
+            // Release page 1
+            lcPool1.releasePage(1);
+
+            if (lcPool1.getPinCount(1) != 0 || lcPool1.isPinned(1)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 1 failed: getPinCount(1) must be 0 after releasePage(1).");
+            }
+
+            // Cause another eviction by putting page 4. Page 1 is still older than page 3 and now unpinned!
+            lcPool1.putPage(new Page(4, 5));
+
+            if (lcPool1.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 1 failed: Page 1 should now be evicted after being released.");
+            }
+
+            if (!lcPool1.containsPage(3) || !lcPool1.containsPage(4)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 1 failed: Pages 3 and 4 should be retained in the pool.");
+            }
+
+            /*
+             * Lifecycle Test 2: Dirty Page Lifecycle.
+             * getPageAndPin(1) -> modify page -> markDirty(1) -> releasePage(1)
+             * Then force eviction.
+             * Expected:
+             * - page 1 was not evicted while pinned
+             * - after release, page 1 becomes eligible
+             * - when eventually evicted, existing OWLET-068 write-back occurs
+             * - modification survives on disk
+             */
+            lifecyclePageFile = File.createTempFile("owldb_bp_lc_page_", ".data");
+            lifecyclePageFile.deleteOnExit();
+
+            lifecycleMetaFile = File.createTempFile("owldb_bp_lc_meta_", ".data");
+            lifecycleMetaFile.deleteOnExit();
+            lifecycleMetaFile.delete();
+
+            CountingPageStorage lcStorage = new CountingPageStorage(lifecyclePageFile, lifecycleMetaFile);
+
+            Page initP1 = new Page(1, 5);
+            initP1.addRow(new Row(List.of("1", "Original", "100")));
+            lcStorage.savePage(initP1);
+
+            Page initP2 = new Page(2, 5);
+            initP2.addRow(new Row(List.of("2", "Second", "200")));
+            lcStorage.savePage(initP2);
+
+            Page initP3 = new Page(3, 5);
+            initP3.addRow(new Row(List.of("3", "Third", "300")));
+            lcStorage.savePage(initP3);
+
+            lcStorage.savePageLocations();
+
+            BufferPool lcDirtyPool = new BufferPool(2, lcStorage);
+
+            // getPageAndPin(1) loads page 1 and pins it
+            Page dp1 = lcDirtyPool.getPageAndPin(1);
+            if (dp1 == null || lcDirtyPool.getPinCount(1) != 1) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 2 failed: Page 1 must be loaded and pinned.");
+            }
+
+            // Modify page and mark dirty
+            dp1.addRow(new Row(List.of("10", "Modified", "999")));
+            lcDirtyPool.markDirty(1);
+
+            if (!lcDirtyPool.isDirty(1)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 2 failed: Page 1 must be marked dirty.");
+            }
+
+            // Load page 2 (pool now full with 1 and 2, page 1 is LRU)
+            lcDirtyPool.getPageFromStorage(2);
+
+            // Try to evict by loading page 3 while page 1 is still pinned
+            lcDirtyPool.getPageFromStorage(3);
+
+            // Page 1 is pinned and dirty; page 2 is clean and unpinned, so page 2 was evicted!
+            if (!lcDirtyPool.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 2 failed: Pinned dirty page 1 must NOT be evicted.");
+            }
+
+            // Release page 1
+            lcDirtyPool.releasePage(1);
+
+            if (lcDirtyPool.getPinCount(1) != 0) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 2 failed: Pin count must be 0 after release.");
+            }
+
+            // Page 1 must STILL be dirty and cached (releasePage does not auto-flush)
+            if (!lcDirtyPool.isDirty(1)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 2 failed: releasePage must not clear dirty flag or force flush.");
+            }
+
+            // Now load page 2 back. Since pool has 1 (older, unpinned) and 3 (newer), page 1 is evicted!
+            int lcSavesBeforeEviction = lcStorage.saveCount;
+            lcDirtyPool.getPageFromStorage(2);
+
+            // Page 1 should now be evicted
+            if (lcDirtyPool.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 2 failed: Page 1 should be evicted once released and LRU victim.");
+            }
+
+            // Eviction of dirty page 1 must trigger write-back to storage
+            if (lcStorage.saveCount <= lcSavesBeforeEviction) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 2 failed: Evicting dirty page 1 must trigger write-back to storage.");
+            }
+
+            // Verify modification survived by reading from storage
+            Page verifiedP1 = lcStorage.loadPage(1);
+
+            if (verifiedP1 == null || verifiedP1.getRows().size() != 2) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 2 failed: Modified rows did not survive on disk after write-back.");
+            }
+
+            if (!"Modified".equals(verifiedP1.getRows().get(1).getValues().get(1))) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 2 failed: Modified row content does not match expected value.");
+            }
+
+            /*
+             * Lifecycle Test 3: Pinning + Cache Miss.
+             * Empty BufferPool configured with PageStorage.
+             * Call getPageAndPin(1).
+             * Expected: disk -> load page -> insert into BufferPool -> pin page -> return page.
+             * Verify containsPage(1) == true and getPinCount(1) == 1.
+             */
+            BufferPool lcMissPool = new BufferPool(3, lcStorage);
+
+            if (lcMissPool.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 3 failed: Pool should initially be empty.");
+            }
+
+            Page missP1 = lcMissPool.getPageAndPin(1);
+
+            if (missP1 == null || missP1.getPageId() != 1) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 3 failed: getPageAndPin(1) should load and return page 1.");
+            }
+
+            if (!lcMissPool.containsPage(1)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 3 failed: Page 1 must be inserted into BufferPool on cache miss.");
+            }
+
+            if (lcMissPool.getPinCount(1) != 1 || !lcMissPool.isPinned(1)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 3 failed: Page 1 must have pin count 1 after getPageAndPin.");
+            }
+
+            /*
+             * Lifecycle Test 4: Cache Hit.
+             * Page 1 is already cached in lcMissPool.
+             * Calling getPageAndPin(1) must:
+             * - return cached page
+             * - increment pin count
+             * - update normal cache access behavior
+             * - NOT reload page from disk
+             */
+            int lcLoadsBeforeHit = lcStorage.loadCount;
+            Page lcHitP1 = lcMissPool.getPageAndPin(1);
+
+            if (lcHitP1 != missP1) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 4 failed: Cache hit should return identical cached Page reference.");
+            }
+
+            if (lcStorage.loadCount != lcLoadsBeforeHit) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 4 failed: Cache hit must NOT reload page from disk.");
+            }
+
+            if (lcMissPool.getPinCount(1) != 2) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 4 failed: Pin count must increment to 2 on second getPageAndPin.");
+            }
+
+            // Release both pins
+            lcMissPool.releasePage(1);
+            if (lcMissPool.getPinCount(1) != 1) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 4 failed: Pin count must be 1 after first release.");
+            }
+
+            lcMissPool.releasePage(1);
+            if (lcMissPool.getPinCount(1) != 0 || lcMissPool.isPinned(1)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 4 failed: Pin count must be 0 after second release.");
+            }
+
+            /*
+             * Lifecycle Test 5: Missing Page.
+             * Calling getPageAndPin(nonExistingPage):
+             * - returns null
+             * - does not create a page
+             * - does not create pin metadata
+             * - does not increase BufferPool size
+             * Calling releasePage(nonExistingPage):
+             * - handled safely and cleanly without exception
+             */
+            int sizeBeforeMissing = lcMissPool.size();
+            Page missingPage = lcMissPool.getPageAndPin(9999);
+
+            if (missingPage != null) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 5 failed: Missing page must return null.");
+            }
+
+            if (lcMissPool.containsPage(9999)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 5 failed: Missing page must not be stored in pool.");
+            }
+
+            if (lcMissPool.getPinCount(9999) != 0 || lcMissPool.isPinned(9999)) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 5 failed: Missing page must not have pin metadata.");
+            }
+
+            if (lcMissPool.size() != sizeBeforeMissing) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 5 failed: BufferPool size must not increase for missing page.");
+            }
+
+            // Releasing non-existing page should be safe and no-op
+            lcMissPool.releasePage(9999);
+
+            if (lcMissPool.getPinCount(9999) != 0) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 5 failed: Non-existing page pin count must remain 0.");
+            }
+
+            /*
+             * Lifecycle Test 6: Double Release.
+             * getPageAndPin(1) -> pin count = 1
+             * releasePage(1)   -> pin count = 0
+             * releasePage(1)   -> throws IllegalStateException, pin count remains 0.
+             */
+            lcMissPool.getPageAndPin(1);
+            if (lcMissPool.getPinCount(1) != 1) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 6 failed: Pin count must be 1.");
+            }
+
+            lcMissPool.releasePage(1);
+            if (lcMissPool.getPinCount(1) != 0) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 6 failed: Pin count must be 0 after release.");
+            }
+
+            boolean doubleReleaseFailed = false;
+
+            try {
+
+                lcMissPool.releasePage(1);
+
+            } catch (IllegalStateException e) {
+
+                doubleReleaseFailed = true;
+            }
+
+            if (!doubleReleaseFailed) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 6 failed: Double release must throw IllegalStateException.");
+            }
+
+            if (lcMissPool.getPinCount(1) != 0) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 6 failed: Pin count must not become negative.");
+            }
+
+            /*
+             * Lifecycle Test 7: putPage overwrite protection for pinned pages.
+             * A page that is currently pinned cannot be replaced via putPage.
+             * Once released (pin count 0), replacement is permitted.
+             */
+            BufferPool putSafetyPool = new BufferPool(2);
+            putSafetyPool.putPage(new Page(1, 5));
+            putSafetyPool.getPageAndPin(1);
+
+            boolean overwriteBlocked = false;
+
+            try {
+
+                putSafetyPool.putPage(new Page(1, 10));
+
+            } catch (IllegalStateException e) {
+
+                overwriteBlocked = true;
+            }
+
+            if (!overwriteBlocked) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 7 failed: putPage must not overwrite a pinned page.");
+            }
+
+            // Release page 1, then putPage should succeed
+            putSafetyPool.releasePage(1);
+            Page newPage1 = new Page(1, 10);
+            putSafetyPool.putPage(newPage1);
+
+            if (putSafetyPool.getPage(1) != newPage1 || putSafetyPool.getPage(1).getMaxRows() != 10) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 7 failed: putPage should succeed once page is released.");
+            }
+
+            /*
+             * Lifecycle Test 8: getPageAndPin(pageId, storage) with explicit storage parameter.
+             */
+            BufferPool explicitStoragePool = new BufferPool(2);
+            Page expP2 = explicitStoragePool.getPageAndPin(2, lcStorage);
+
+            if (expP2 == null || expP2.getPageId() != 2) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 8 failed: getPageAndPin(2, storage) should return page 2.");
+            }
+
+            if (explicitStoragePool.getPinCount(2) != 1) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 8 failed: Pin count must be 1.");
+            }
+
+            explicitStoragePool.releasePage(2);
+
+            if (explicitStoragePool.getPinCount(2) != 0) {
+
+                throw new IllegalStateException(
+                        "Lifecycle Test 8 failed: Pin count must be 0 after release.");
+            }
+
             System.out.println("BufferPool regression tests passed successfully.");
 
         } finally {
@@ -1340,6 +1775,16 @@ public class BufferPoolTest {
             if (tempMetaFile != null && tempMetaFile.exists()) {
 
                 tempMetaFile.delete();
+            }
+
+            if (lifecyclePageFile != null && lifecyclePageFile.exists()) {
+
+                lifecyclePageFile.delete();
+            }
+
+            if (lifecycleMetaFile != null && lifecycleMetaFile.exists()) {
+
+                lifecycleMetaFile.delete();
             }
         }
     }
